@@ -8,6 +8,7 @@ import { assistantApi } from './api';
 import type { ChatLine } from './types';
 
 const starter: ChatLine[] = [{ id: 'hello', role: 'assistant', text: 'Tap the mic, say what you need, or type it. I’ll keep the thread here.', source: 'local' }];
+const quickPrompts = ['What should I do next?', 'Log a gym task', 'Help estimate my food'];
 
 export default function AssistantScreen() {
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
@@ -17,6 +18,7 @@ export default function AssistantScreen() {
   const [busy, setBusy] = useState(false);
   const [autoSpeak, setAutoSpeak] = useState(true);
   const [recordedUri, setRecordedUri] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<string[]>(quickPrompts);
 
   useEffect(() => {
     (async () => {
@@ -36,6 +38,7 @@ export default function AssistantScreen() {
     try {
       const reply = await assistantApi.send({ message: clean, source });
       setLines(prev => [...prev, { id: `${Date.now()}-a`, role: 'assistant', text: reply.text, source: reply.source }]);
+      setSuggestions(reply.suggestions?.length ? reply.suggestions : quickPrompts);
       if (autoSpeak) {
         Speech.stop();
         Speech.speak(reply.text.slice(0, Speech.maxSpeechInputLength || 800), { rate: 0.98, pitch: 1.0 });
@@ -50,10 +53,11 @@ export default function AssistantScreen() {
 
   async function toggleRecording() {
     if (recorderState.isRecording) {
+      const seconds = Math.max(1, Math.round(recorderState.durationMillis / 1000));
       await recorder.stop();
       const uri = recorder.uri ?? null;
       setRecordedUri(uri);
-      await send('Voice note recorded. Transcription bridge pending; typed fallback is ready.', 'voice');
+      await send(`Voice note captured (${seconds}s). I still need typed words until transcription is enabled.`, 'voice');
       return;
     }
     try {
@@ -71,7 +75,7 @@ export default function AssistantScreen() {
         <Text style={styles.micIcon}>{recorderState.isRecording ? '■' : '◉'}</Text>
       </Pressable>
       <Text style={styles.heroTitle}>{recorderState.isRecording ? 'Listening… tap to stop' : 'Talk to Hermes'}</Text>
-      <Text style={styles.heroSub}>Voice shell + typed fallback. Replies can read themselves aloud.</Text>
+      <Text style={styles.heroSub}>{recorderState.isRecording ? `${Math.round(recorderState.durationMillis / 1000)}s recorded` : 'One big mic, typed fallback, spoken replies.'}</Text>
     </View>
 
     <Row>
@@ -82,6 +86,11 @@ export default function AssistantScreen() {
     <Card>
       <Field label="Message" value={message} onChangeText={setMessage} placeholder="Ask Hermes, dump a thought, or say what to log…" multiline />
       <Button title={busy ? 'Sending…' : 'Send'} onPress={() => send(message)} />
+      <View style={styles.suggestions}>
+        {suggestions.map(suggestion => <Pressable key={suggestion} accessibilityRole="button" onPress={() => send(suggestion)} style={styles.chip}>
+          <Text style={styles.chipText}>{suggestion}</Text>
+        </Pressable>)}
+      </View>
       {recordedUri ? <Text style={styles.uri}>Last voice note saved locally.</Text> : null}
     </Card>
 
@@ -109,5 +118,8 @@ const styles = StyleSheet.create({
   bubbleText: { color: colors.ink, fontWeight: '700' },
   userText: { color: '#fff' },
   source: { marginTop: 6, color: colors.muted, fontSize: 11, fontWeight: '900', textTransform: 'uppercase' },
+  suggestions: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 10 },
+  chip: { paddingVertical: 8, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, borderColor: '#c7d2fe', backgroundColor: '#eef2ff', marginRight: 8, marginTop: 8 },
+  chipText: { color: '#3730a3', fontWeight: '800', fontSize: 12 },
   uri: { marginTop: 8, color: colors.muted, fontSize: 12 },
 });
