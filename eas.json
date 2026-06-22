@@ -14,18 +14,10 @@
       "android": {
         "buildType": "apk"
       },
-      "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://ubuntu-8gb-nbg1-1.tail371dd0.ts.net",
-        "EXPO_PUBLIC_API_TOKEN": "-cRPl7ZTuu_Syl0k-qvL6-1IR6OyUQQX5Ry32fh8GNo"
-      },
       "channel": "preview"
     },
     "production": {
       "autoIncrement": true,
-      "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://ubuntu-8gb-nbg1-1.tail371dd0.ts.net",
-        "EXPO_PUBLIC_API_TOKEN": "-cRPl7ZTuu_Syl0k-qvL6-1IR6OyUQQX5Ry32fh8GNo"
-      },
       "channel": "production"
     }
   },

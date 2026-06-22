@@ -38,6 +38,17 @@
         "projectId": "6530c5fd-b6aa-4c07-abaf-2d77d499fb1c"
       }
     },
-    "owner": "yash456k"
+    "owner": "yash456k",
+    "plugins": [
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow Life Task to record voice notes for Hermes.",
+          "enableBackgroundPlayback": false,
+          "enableBackgroundRecording": false
+        }
+      ],
+      "expo-asset"
+    ]
   }
 }
