@@ -1,4 +1,4 @@
-import { API_BASE_URL, API_TOKEN } from '../../core/config';
+import { API_BASE_URL } from '../../core/config';
 import { request } from '../../core/api';
 import type { AssistantReply, AssistantSendInput } from './types';
 
@@ -6,18 +6,13 @@ function endpoint(path: string) {
   return `${API_BASE_URL.replace(/\/$/, '')}${path}`;
 }
 
-function authHeaders(extra: Record<string, string> = {}) {
-  const headers: Record<string, string> = { ...extra };
-  headers[['Author', 'ization'].join('')] = ['Bearer', API_TOKEN].join(' ');
-  return headers;
-}
 
 export const assistantApi = {
   send: (input: AssistantSendInput) => request<AssistantReply>('/assistant/message', { method: 'POST', body: JSON.stringify(input) }),
   async stream(input: AssistantSendInput, onDelta: (delta: string) => void): Promise<string> {
     const response = await fetch(endpoint('/assistant/stream'), {
       method: 'POST',
-      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(input),
     });
     if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);

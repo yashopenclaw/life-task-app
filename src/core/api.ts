@@ -1,4 +1,4 @@
-import { API_BASE_URL, API_TOKEN } from './config';
+import { API_BASE_URL } from './config';
 
 function url(path: string) {
   return `${API_BASE_URL.replace(/\/$/, '')}${path}`;
@@ -9,7 +9,6 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string> | undefined),
   };
-  headers[['Author', 'ization'].join('')] = ['Bearer', API_TOKEN].join(' ');
 
   let response: Response;
   try {

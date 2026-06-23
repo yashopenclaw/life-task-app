@@ -1,10 +1,6 @@
 import assistant from './assistant';
-import tasks from './tasks';
 import calories from './calories';
-import summaries from './summaries';
-import notes from './notes';
-import brief from './brief';
-import books from './books';
+import tasks from './tasks';
 
 export type FeatureEntry = { key: string; title: string; icon: string; component: React.ComponentType };
-export const features = [assistant, tasks, calories, summaries, notes, brief, books];
+export const features = [assistant, calories, tasks];

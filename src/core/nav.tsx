@@ -1,5 +1,5 @@
 import { ComponentType, useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { features } from '../features';
 import { colors } from './theme';
 import { loadJson, saveJson } from './storage';
@@ -7,18 +7,16 @@ import { TabIcon, TabIconName } from './ui/TabIcon';
 import { AuroraBackground } from './ui/AuroraBackground';
 import { GlassCard } from './ui/GlassCard';
 
-const visibleTabs = ['assistant', 'tasks', 'calories', 'notes', 'summaries', 'brief', 'books'];
+const visibleTabs = ['assistant', 'calories', 'tasks'];
 const iconMap: Record<string, TabIconName> = {
-  assistant: 'mic-outline', tasks: 'checkbox-outline', calories: 'flame-outline', notes: 'create-outline', summaries: 'document-text-outline', brief: 'newspaper-outline', books: 'book-outline',
+  assistant: 'mic-outline',
+  calories: 'flame-outline',
+  tasks: 'checkbox-outline',
 };
 const accentMap: Record<string, { accent: string; accent2: string }> = {
   assistant: { accent: colors.primary, accent2: colors.blue },
-  tasks: { accent: colors.blue, accent2: colors.primary },
   calories: { accent: '#f3be65', accent2: colors.lime },
-  notes: { accent: '#d7bbff', accent2: colors.primary },
-  summaries: { accent: '#34d7bd', accent2: colors.blue },
-  brief: { accent: '#34d7bd', accent2: colors.primary },
-  books: { accent: '#f0b981', accent2: colors.primary },
+  tasks: { accent: colors.blue, accent2: colors.primary },
 };
 const SELECTED_TAB_KEY = 'life-task:selected-tab:v1';
 
@@ -31,6 +29,7 @@ export function NavShell() {
   useEffect(() => {
     loadJson<string>(SELECTED_TAB_KEY, primaryFeatures[0]?.key || 'assistant').then(saved => {
       if (primaryFeatures.some(feature => feature.key === saved)) setSelectedKey(saved);
+      else saveJson(SELECTED_TAB_KEY, primaryFeatures[0]?.key || 'assistant');
     });
   }, [primaryFeatures]);
 
@@ -49,7 +48,7 @@ export function NavShell() {
     </View>
     <View style={styles.bottomWrap}>
       <GlassCard style={styles.rail} contentStyle={styles.railContent}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.railScroller}>
+        <View style={styles.railScroller}>
           {primaryFeatures.map(f => {
             const active = selectedKey === f.key;
             const accent = (accentMap[f.key] || accentMap.assistant).accent;
@@ -57,7 +56,7 @@ export function NavShell() {
               <TabIcon name={iconMap[f.key] || 'document-text-outline'} active={active} color={active ? '#050608' : '#747985'} size={22} />
             </Pressable>;
           })}
-        </ScrollView>
+        </View>
       </GlassCard>
     </View>
   </View>;
@@ -71,6 +70,6 @@ const styles = StyleSheet.create({
   bottomWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 28, paddingBottom: 18, paddingTop: 8 },
   rail: { height: 58, borderRadius: 29, shadowColor: '#000', shadowOpacity: 0.42, shadowRadius: 22, elevation: 16 },
   railContent: { flex: 1 },
-  railScroller: { minWidth: '100%', flexGrow: 1, alignItems: 'center', justifyContent: 'space-around', paddingHorizontal: 8, gap: 8 },
+  railScroller: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingHorizontal: 10, gap: 10 },
   iconButton: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center', shadowOpacity: 0.30, shadowRadius: 10, elevation: 6 },
 });

@@ -89,7 +89,6 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   topLine: { alignItems: 'center', justifyContent: 'center' },
   kicker: { textAlign: 'center', color: '#7b808b', fontSize: 11, letterSpacing: 4.2, fontFamily: fonts.bodySemibold },
-  settingsDot: { position: 'absolute', right: 0, width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: colors.lineStrong },
   greeting: { textAlign: 'center', color: colors.ink, fontSize: 34, fontFamily: fonts.displaySemibold, marginTop: 16, letterSpacing: -1.1 },
   centerZone: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 52, paddingBottom: 38 },
   centerZoneWithChat: { flex: 0, paddingTop: 24, paddingBottom: 16 },

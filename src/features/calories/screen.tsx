@@ -53,7 +53,6 @@ function Macro({ value, label, color }: { value: number; label: string; color: s
 const styles = StyleSheet.create({
   wrap: { paddingBottom: 22 },
   topLine: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
-  settingsDot: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: colors.lineStrong },
   kicker: { color: '#8b909a', fontSize: 11, letterSpacing: 4.5, fontFamily: fonts.bodySemibold, marginBottom: 12 },
   title: { color: colors.ink, fontSize: 38, lineHeight: 43, fontFamily: fonts.displaySemibold, letterSpacing: -1.3 },
   ringWrap: { alignItems: 'center', marginTop: 36, marginBottom: 28 },

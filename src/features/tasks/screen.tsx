@@ -46,7 +46,6 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   wrap: { paddingBottom: 92 },
   topLine: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 },
-  settingsDot: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: colors.lineStrong },
   kicker: { color: '#8b909a', fontSize: 11, letterSpacing: 4.5, fontFamily: fonts.bodySemibold, marginBottom: 12 },
   title: { color: colors.ink, fontSize: 38, fontFamily: fonts.displaySemibold, letterSpacing: -1.25, lineHeight: 43 },
   subtitle: { color: colors.muted, fontFamily: fonts.bodyMedium, marginTop: 10, fontSize: 15 },
