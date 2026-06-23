@@ -4,7 +4,7 @@ import * as Speech from 'expo-speech';
 import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import { colors } from '../../core/theme';
 import { loadJson, saveJson } from '../../core/storage';
-import { MicGlyph } from '../../core/ui/MicGlyph';
+import { MicOrb } from '../../core/ui/MicOrb';
 import { GlassCard } from '../../core/ui/GlassCard';
 import { fonts } from '../../core/fonts';
 import { assistantApi } from './api';
@@ -74,9 +74,7 @@ export default function AssistantScreen() {
     <View style={styles.topLine}><Text style={styles.kicker}>TUESDAY · GOOD EVENING</Text></View>
     <Text style={styles.greeting}>Hi, Yash</Text>
     <View style={[styles.centerZone, hasChat && styles.centerZoneWithChat]}>
-      <Pressable accessibilityRole="button" onPress={toggleRecording} style={[styles.orb, recorderState.isRecording && styles.orbActive]}>
-        <View style={styles.orbRing} /><MicGlyph size={54} />
-      </Pressable>
+      <MicOrb recording={recorderState.isRecording} onPress={toggleRecording} />
       <Text style={styles.prompt}>{recorderState.isRecording ? `${Math.round(recorderState.durationMillis / 1000)}s · tap to stop` : voiceDraft ? `${voiceDraft.seconds}s captured. Type transcript below.` : busy ? 'Streaming Hermes…' : 'Capture by voice.'}</Text>
     </View>
     {hasChat ? <ScrollView ref={scroller} style={styles.thread} contentContainerStyle={styles.threadInner}>{lines.map(line => <View key={line.id} style={[styles.bubble, line.role === 'user' ? styles.userBubble : styles.assistantBubble]}><Text style={[styles.bubbleText, line.role === 'user' && styles.userText, line.source === 'typing' && styles.thinking, line.source === 'error' && styles.errorText]}>{line.text || '…'}</Text></View>)}</ScrollView> : null}
@@ -92,11 +90,8 @@ const styles = StyleSheet.create({
   greeting: { textAlign: 'center', color: colors.ink, fontSize: 34, fontFamily: fonts.displaySemibold, marginTop: 16, letterSpacing: -1.1 },
   centerZone: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 52, paddingBottom: 38 },
   centerZoneWithChat: { flex: 0, paddingTop: 24, paddingBottom: 16 },
-  orb: { width: 132, height: 132, borderRadius: 66, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', shadowColor: colors.primary, shadowOpacity: 0.34, shadowRadius: 22, elevation: 12 },
-  orbRing: { position: 'absolute', width: 172, height: 172, borderRadius: 86, backgroundColor: 'rgba(138,124,255,0.10)', borderWidth: 1, borderColor: 'rgba(138,124,255,0.08)' },
-  orbActive: { backgroundColor: colors.lime, shadowColor: colors.lime },
   prompt: { color: colors.ink, fontSize: 20, fontFamily: fonts.displayMedium, marginTop: 42, textAlign: 'center', letterSpacing: -0.3 },
-  thread: { maxHeight: 248, marginBottom: 10 },
+  thread: { maxHeight: 200, marginBottom: 10, opacity: 0.92 },
   threadInner: { paddingBottom: 8 },
   bubble: { borderRadius: 18, paddingVertical: 12, paddingHorizontal: 14, marginBottom: 10, maxWidth: '90%' },
   assistantBubble: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, alignSelf: 'flex-start' },
@@ -105,7 +100,7 @@ const styles = StyleSheet.create({
   userText: { color: '#fff' },
   thinking: { color: colors.muted },
   errorText: { color: colors.danger },
-  composer: { borderRadius: 22, marginBottom: 12 },
+  composer: { borderRadius: 22, marginBottom: 12, opacity: 0.96 },
   composerInner: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', padding: 8 },
   input: { flex: 1, color: colors.ink, minHeight: 42, maxHeight: 96, paddingHorizontal: 10, paddingVertical: 9, fontFamily: fonts.bodyMedium },
   send: { backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 11, paddingHorizontal: 16 },
