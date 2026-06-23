@@ -18,73 +18,55 @@ export default function TasksScreen() {
   const [message, setMessage] = useState('');
   async function addNatural() {
     const clean = message.trim(); if (!clean || busy) return;
-    setBusy(true);
-    try { await tasksApi.natural(clean, 'typed'); setMessage(''); await load(); }
-    finally { setBusy(false); }
+    setBusy(true); try { await tasksApi.natural(clean, 'typed'); setMessage(''); await load(); } finally { setBusy(false); }
   }
   async function complete(task: Task) { await tasksApi.update(task.id, { done: !task.done }); await load(); }
   const tasks = data || [];
   const done = tasks.filter(t => t.done).length;
   const grouped = useMemo(() => Object.fromEntries(buckets.map(b => [b.key, tasks.filter(t => t.bucket === b.key)])) as Record<Bucket, Task[]>, [tasks]);
   if (loading) return <State loading />; if (error) return <State error={error} retry={load} />;
-
   return <View style={styles.root}>
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.wrap}>
-      <Text style={styles.kicker}>TODAY</Text>
-      <Text style={styles.title}>Tasks</Text>
-      <Text style={styles.subtitle}>{done} of {tasks.length || 0} done · keep the momentum</Text>
-      <View style={styles.quickInput}>
-        <TextInput value={message} onChangeText={setMessage} placeholder="Add by natural language…" placeholderTextColor="#6f737d" style={styles.input} onSubmitEditing={addNatural} />
-        <Pressable disabled={busy} onPress={addNatural} style={styles.quickButton}><Text style={styles.quickButtonText}>{busy ? '…' : '+'}</Text></Pressable>
-      </View>
-      {buckets.map(bucket => <View key={bucket.key} style={styles.group}>
-        <View style={styles.sectionRow}><Text style={styles.section}>{bucket.title}</Text><Text style={styles.sectionHint}>{bucket.hint}</Text></View>
-        {grouped[bucket.key].length === 0 ? <Text style={styles.empty}>Nothing here.</Text> : grouped[bucket.key].map(task => <TaskCard key={task.id} task={task} onToggle={() => complete(task)} />)}
-      </View>)}
+      <View style={styles.topLine}><View><Text style={styles.kicker}>TODAY</Text><Text style={styles.title}>Tasks</Text><Text style={styles.subtitle}>{done} of {tasks.length || 0} done · keep the momentum</Text></View><View style={styles.settingsDot} /></View>
+      <View style={styles.quickInput}><TextInput value={message} onChangeText={setMessage} placeholder="Add by natural language…" placeholderTextColor="#6b707b" style={styles.input} onSubmitEditing={addNatural} /><Pressable disabled={busy} onPress={addNatural} style={styles.quickButton}><Text style={styles.quickButtonText}>{busy ? '…' : '+'}</Text></Pressable></View>
+      {buckets.map(bucket => <View key={bucket.key} style={styles.group}><View style={styles.sectionRow}><Text style={styles.section}>{bucket.title}</Text><Text style={styles.sectionHint}>{bucket.hint}</Text></View>{grouped[bucket.key].length === 0 ? <Text style={styles.empty}>Nothing here.</Text> : grouped[bucket.key].map(task => <TaskCard key={task.id} task={task} onToggle={() => complete(task)} />)}</View>)}
     </ScrollView>
     <Pressable onPress={addNatural} style={styles.fab}><Text style={styles.fabText}>+</Text></Pressable>
   </View>;
 }
-
 function TaskCard({ task, onToggle }: { task: Task; onToggle: () => void }) {
   const time = task.scheduled_at ? new Date(task.scheduled_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : null;
   const sub = task.recurring_rule ? task.recurring_rule.replace('natural:', '') : task.bucket === 'buffer' ? 'backlog' : task.bucket;
-  return <Pressable onPress={onToggle} style={[styles.card, task.done && styles.cardDone]}>
-    <View style={[styles.check, task.done && styles.checkDone]}>{task.done ? <Text style={styles.checkMark}>✓</Text> : null}</View>
-    <View style={styles.taskTextWrap}>
-      <Text style={[styles.taskTitle, task.done && styles.done]}>{task.title}</Text>
-      <Text style={styles.meta}>{sub}</Text>
-    </View>
-    {time ? <View style={styles.timeChip}><Text style={styles.timeText}>{time}</Text></View> : null}
-  </Pressable>;
+  return <Pressable onPress={onToggle} style={[styles.card, task.done && styles.cardDone]}><View style={[styles.check, task.done && styles.checkDone]}>{task.done ? <Text style={styles.checkMark}>✓</Text> : null}</View><View style={styles.taskTextWrap}><Text style={[styles.taskTitle, task.done && styles.done]}>{task.title}</Text><Text style={styles.meta}>{sub}</Text></View>{time ? <View style={styles.timeChip}><Text style={styles.timeText}>{time}</Text></View> : null}</Pressable>;
 }
-
 const styles = StyleSheet.create({
   root: { flex: 1 },
   wrap: { paddingBottom: 92 },
-  kicker: { color: '#8b8f98', fontSize: 11, letterSpacing: 4, fontWeight: '900', marginBottom: 8 },
-  title: { color: colors.ink, fontSize: 32, fontWeight: '900', letterSpacing: -0.8 },
-  subtitle: { color: colors.muted, fontWeight: '700', marginTop: 8, marginBottom: 22 },
-  quickInput: { minHeight: 54, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.045)', borderWidth: 1, borderColor: colors.line, flexDirection: 'row', alignItems: 'center', paddingLeft: 16, paddingRight: 7, marginBottom: 24 },
-  input: { flex: 1, color: colors.ink, fontWeight: '700', minHeight: 44 },
-  quickButton: { width: 42, height: 42, borderRadius: 16, backgroundColor: '#66a8ff', alignItems: 'center', justifyContent: 'center' },
-  quickButtonText: { color: '#fff', fontWeight: '900', fontSize: 24, lineHeight: 26 },
-  group: { marginBottom: 26 },
-  sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  section: { color: '#8bbcff', fontSize: 12, letterSpacing: 3, fontWeight: '900' },
-  sectionHint: { color: colors.muted, fontWeight: '700', fontSize: 12 },
-  empty: { color: colors.muted, fontWeight: '700', paddingVertical: 8 },
-  card: { minHeight: 84, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.045)', borderWidth: 1, borderColor: colors.line, flexDirection: 'row', alignItems: 'center', padding: 16, marginBottom: 11, shadowColor: '#5d78ff', shadowOpacity: 0.08, shadowRadius: 16, elevation: 3 },
-  cardDone: { opacity: 0.72 },
-  check: { width: 25, height: 25, borderRadius: 9, borderWidth: 2, borderColor: 'rgba(255,255,255,0.14)', marginRight: 13, alignItems: 'center', justifyContent: 'center' },
-  checkDone: { backgroundColor: '#4ea1ff', borderColor: '#4ea1ff' },
-  checkMark: { color: '#fff', fontWeight: '900', fontSize: 14 },
+  topLine: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 },
+  settingsDot: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: colors.lineStrong },
+  kicker: { color: '#8b909a', fontSize: 11, letterSpacing: 4.5, fontWeight: '700', marginBottom: 12 },
+  title: { color: colors.ink, fontSize: 38, fontWeight: '800', letterSpacing: -1.25, lineHeight: 43 },
+  subtitle: { color: colors.muted, fontWeight: '600', marginTop: 10, fontSize: 15 },
+  quickInput: { height: 60, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, flexDirection: 'row', alignItems: 'center', paddingLeft: 18, paddingRight: 8, marginBottom: 32 },
+  input: { flex: 1, color: colors.ink, fontWeight: '600', minHeight: 44, fontSize: 15 },
+  quickButton: { width: 46, height: 46, borderRadius: 17, backgroundColor: colors.blue, alignItems: 'center', justifyContent: 'center' },
+  quickButtonText: { color: '#fff', fontWeight: '700', fontSize: 26, lineHeight: 28 },
+  group: { marginBottom: 30 },
+  sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 13 },
+  section: { color: '#9dc6ff', fontSize: 12, letterSpacing: 4.0, fontWeight: '800' },
+  sectionHint: { color: colors.muted, fontWeight: '600', fontSize: 13 },
+  empty: { color: colors.muted, fontWeight: '600', paddingVertical: 8, fontSize: 15 },
+  card: { minHeight: 78, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, flexDirection: 'row', alignItems: 'center', padding: 15, marginBottom: 10 },
+  cardDone: { opacity: 0.62 },
+  check: { width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.18)', marginRight: 13, alignItems: 'center', justifyContent: 'center' },
+  checkDone: { backgroundColor: colors.blue, borderColor: colors.blue },
+  checkMark: { color: '#fff', fontWeight: '800', fontSize: 13 },
   taskTextWrap: { flex: 1 },
-  taskTitle: { color: colors.ink, fontSize: 15, lineHeight: 20, fontWeight: '900' },
+  taskTitle: { color: colors.ink, fontSize: 15, lineHeight: 20, fontWeight: '700' },
   done: { color: colors.muted, textDecorationLine: 'line-through' },
-  meta: { color: colors.muted, marginTop: 5, fontWeight: '700', fontSize: 12 },
-  timeChip: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: 'rgba(91,154,255,0.20)', borderWidth: 1, borderColor: 'rgba(91,154,255,0.28)' },
-  timeText: { color: '#9cc6ff', fontWeight: '900', fontSize: 12 },
-  fab: { position: 'absolute', right: 0, bottom: 82, width: 58, height: 58, borderRadius: 29, backgroundColor: '#66a8ff', alignItems: 'center', justifyContent: 'center', shadowColor: '#66a8ff', shadowOpacity: 0.45, shadowRadius: 18, elevation: 12 },
-  fabText: { color: '#fff', fontWeight: '500', fontSize: 34, lineHeight: 38 },
+  meta: { color: colors.muted, marginTop: 5, fontWeight: '600', fontSize: 12 },
+  timeChip: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: 'rgba(99,167,255,0.12)', borderWidth: 1, borderColor: 'rgba(99,167,255,0.20)' },
+  timeText: { color: '#a8ccff', fontWeight: '700', fontSize: 12 },
+  fab: { position: 'absolute', right: 22, bottom: 82, width: 54, height: 54, borderRadius: 27, backgroundColor: colors.blue, alignItems: 'center', justifyContent: 'center', shadowColor: colors.blue, shadowOpacity: 0.24, shadowRadius: 12, elevation: 8 },
+  fabText: { color: '#fff', fontWeight: '400', fontSize: 32, lineHeight: 34 },
 });
