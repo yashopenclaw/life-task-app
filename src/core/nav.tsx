@@ -1,10 +1,19 @@
 import { ComponentType, useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { features } from '../features';
 import { colors } from './theme';
 import { loadJson, saveJson } from './storage';
+import { TabIcon, TabIconName } from './ui/TabIcon';
 
-const visibleTabs = ['assistant', 'tasks', 'calories', 'summaries'];
+const visibleTabs = ['assistant', 'tasks', 'calories', 'notes', 'summaries', 'books'];
+const iconMap: Record<string, TabIconName> = {
+  assistant: 'mic',
+  tasks: 'tasks',
+  calories: 'calories',
+  notes: 'notes',
+  summaries: 'summary',
+  books: 'square',
+};
 const SELECTED_TAB_KEY = 'life-task:selected-tab:v1';
 
 export function NavShell() {
@@ -25,6 +34,8 @@ export function NavShell() {
   }
 
   return <View style={styles.app}>
+    <View style={[styles.aura, styles.auraPurple]} />
+    <View style={[styles.aura, styles.auraGreen]} />
     <View style={[styles.content, compact && styles.contentCompact]}>
       {primaryFeatures.map(feature => {
         const Screen = feature.component as ComponentType;
@@ -35,24 +46,28 @@ export function NavShell() {
       })}
     </View>
     <View style={styles.bottomWrap}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
-        {primaryFeatures.map(f => <Pressable key={f.key} accessibilityRole="button" onPress={() => selectTab(f.key)} style={[styles.tab, selectedKey === f.key && styles.tabActive]}>
-          <Text style={[styles.tabText, selectedKey === f.key && styles.tabTextActive]}>{f.title}</Text>
-        </Pressable>)}
-      </ScrollView>
+      <View style={styles.rail}>
+        {primaryFeatures.map(f => {
+          const active = selectedKey === f.key;
+          return <Pressable key={f.key} accessibilityRole="button" onPress={() => selectTab(f.key)} style={[styles.iconButton, active && styles.iconButtonActive]}>
+            <TabIcon name={iconMap[f.key] || 'square'} active={active} size={24} />
+          </Pressable>;
+        })}
+      </View>
     </View>
   </View>;
 }
 const styles = StyleSheet.create({
-  app: { flex: 1, backgroundColor: colors.bg },
-  content: { flex: 1, paddingHorizontal: 18, paddingTop: 36, paddingBottom: 92, maxWidth: 760, width: '100%', alignSelf: 'center' },
-  contentCompact: { paddingHorizontal: 14, paddingTop: 26 },
-  screenSlot: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, paddingHorizontal: 18, paddingTop: 36, paddingBottom: 92 },
+  app: { flex: 1, backgroundColor: colors.bg, overflow: 'hidden' },
+  aura: { position: 'absolute', width: 260, height: 260, borderRadius: 130, opacity: 0.16 },
+  auraPurple: { top: 120, alignSelf: 'center', backgroundColor: '#8d7cff' },
+  auraGreen: { right: -120, top: 210, backgroundColor: '#cfff45', opacity: 0.08 },
+  content: { flex: 1, maxWidth: 760, width: '100%', alignSelf: 'center' },
+  contentCompact: {},
+  screenSlot: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, paddingHorizontal: 24, paddingTop: 56, paddingBottom: 104 },
   screenHidden: { opacity: 0, display: 'none' },
-  bottomWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 16, backgroundColor: 'rgba(8,9,10,0.94)', borderTopWidth: 1, borderColor: colors.line },
-  tabs: { alignItems: 'center', justifyContent: 'center', flexGrow: 1 },
-  tab: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1, borderColor: 'transparent', marginHorizontal: 4, backgroundColor: 'transparent' },
-  tabActive: { backgroundColor: 'rgba(255,255,255,0.06)', borderColor: colors.line },
-  tabText: { color: colors.muted, fontWeight: '700', fontSize: 13 },
-  tabTextActive: { color: colors.ink },
+  bottomWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 22, paddingBottom: 18, paddingTop: 10 },
+  rail: { height: 64, borderRadius: 30, backgroundColor: 'rgba(13,15,20,0.86)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', shadowColor: '#6d70ff', shadowOpacity: 0.25, shadowRadius: 20, elevation: 14 },
+  iconButton: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
+  iconButtonActive: { backgroundColor: '#8f7cff', shadowColor: '#8f7cff', shadowOpacity: 0.45, shadowRadius: 16, elevation: 8 },
 });
