@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button, Card, Field, Row } from './atoms';
 import { MicGlyph } from './MicGlyph';
 import { colors } from '../theme';
+import { fonts } from '../fonts';
 export function NaturalCapture({ title, prompt, placeholder, busy, onSubmit }: { title: string; prompt: string; placeholder: string; busy?: boolean; onSubmit: (message: string, source: 'typed' | 'voice') => Promise<void> | void }) {
   const [message, setMessage] = useState('');
   const [voiceMode, setVoiceMode] = useState(false);
@@ -21,6 +22,6 @@ const styles = StyleSheet.create({
   mic: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#111214', alignItems: 'center', justifyContent: 'center', marginRight: 12, borderWidth: 1, borderColor: colors.line },
   micOn: { backgroundColor: colors.primary },
   copy: { flex: 1 },
-  title: { fontSize: 18, fontWeight: '800', color: colors.ink, letterSpacing: -0.2 },
-  prompt: { color: colors.muted, fontWeight: '600', marginTop: 3 },
+  title: { fontSize: 18, fontFamily: fonts.displaySemibold, color: colors.ink, letterSpacing: -0.2 },
+  prompt: { color: colors.muted, fontFamily: fonts.bodyMedium, marginTop: 3 },
 });

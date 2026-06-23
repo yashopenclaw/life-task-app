@@ -2,7 +2,9 @@ import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useAsync } from '../../core/useAsync';
 import { State } from '../../core/ui/atoms';
+import { GlassCard } from '../../core/ui/GlassCard';
 import { colors } from '../../core/theme';
+import { fonts } from '../../core/fonts';
 import { tasksApi } from './api';
 import type { Bucket, Task } from './types';
 
@@ -28,7 +30,7 @@ export default function TasksScreen() {
   return <View style={styles.root}>
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.wrap}>
       <View style={styles.topLine}><View><Text style={styles.kicker}>TODAY</Text><Text style={styles.title}>Tasks</Text><Text style={styles.subtitle}>{done} of {tasks.length || 0} done · keep the momentum</Text></View><View style={styles.settingsDot} /></View>
-      <View style={styles.quickInput}><TextInput value={message} onChangeText={setMessage} placeholder="Add by natural language…" placeholderTextColor="#6b707b" style={styles.input} onSubmitEditing={addNatural} /><Pressable disabled={busy} onPress={addNatural} style={styles.quickButton}><Text style={styles.quickButtonText}>{busy ? '…' : '+'}</Text></Pressable></View>
+      <GlassCard style={styles.quickInput} contentStyle={styles.quickInputInner}><TextInput value={message} onChangeText={setMessage} placeholder="Add by natural language…" placeholderTextColor="#6b707b" style={styles.input} onSubmitEditing={addNatural} /><Pressable disabled={busy} onPress={addNatural} style={styles.quickButton}><Text style={styles.quickButtonText}>{busy ? '…' : '+'}</Text></Pressable></GlassCard>
       {buckets.map(bucket => <View key={bucket.key} style={styles.group}><View style={styles.sectionRow}><Text style={styles.section}>{bucket.title}</Text><Text style={styles.sectionHint}>{bucket.hint}</Text></View>{grouped[bucket.key].length === 0 ? <Text style={styles.empty}>Nothing here.</Text> : grouped[bucket.key].map(task => <TaskCard key={task.id} task={task} onToggle={() => complete(task)} />)}</View>)}
     </ScrollView>
     <Pressable onPress={addNatural} style={styles.fab}><Text style={styles.fabText}>+</Text></Pressable>
@@ -37,36 +39,38 @@ export default function TasksScreen() {
 function TaskCard({ task, onToggle }: { task: Task; onToggle: () => void }) {
   const time = task.scheduled_at ? new Date(task.scheduled_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : null;
   const sub = task.recurring_rule ? task.recurring_rule.replace('natural:', '') : task.bucket === 'buffer' ? 'backlog' : task.bucket;
-  return <Pressable onPress={onToggle} style={[styles.card, task.done && styles.cardDone]}><View style={[styles.check, task.done && styles.checkDone]}>{task.done ? <Text style={styles.checkMark}>✓</Text> : null}</View><View style={styles.taskTextWrap}><Text style={[styles.taskTitle, task.done && styles.done]}>{task.title}</Text><Text style={styles.meta}>{sub}</Text></View>{time ? <View style={styles.timeChip}><Text style={styles.timeText}>{time}</Text></View> : null}</Pressable>;
+  return <GlassCard onPress={onToggle} style={[styles.card, task.done && styles.cardDone]} contentStyle={styles.cardInner}><View style={[styles.check, task.done && styles.checkDone]}>{task.done ? <Text style={styles.checkMark}>✓</Text> : null}</View><View style={styles.taskTextWrap}><Text style={[styles.taskTitle, task.done && styles.done]}>{task.title}</Text><Text style={styles.meta}>{sub}</Text></View>{time ? <View style={styles.timeChip}><Text style={styles.timeText}>{time}</Text></View> : null}</GlassCard>;
 }
 const styles = StyleSheet.create({
   root: { flex: 1 },
   wrap: { paddingBottom: 92 },
   topLine: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 },
   settingsDot: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: colors.lineStrong },
-  kicker: { color: '#8b909a', fontSize: 11, letterSpacing: 4.5, fontWeight: '700', marginBottom: 12 },
-  title: { color: colors.ink, fontSize: 38, fontWeight: '800', letterSpacing: -1.25, lineHeight: 43 },
-  subtitle: { color: colors.muted, fontWeight: '600', marginTop: 10, fontSize: 15 },
-  quickInput: { height: 60, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, flexDirection: 'row', alignItems: 'center', paddingLeft: 18, paddingRight: 8, marginBottom: 32 },
-  input: { flex: 1, color: colors.ink, fontWeight: '600', minHeight: 44, fontSize: 15 },
+  kicker: { color: '#8b909a', fontSize: 11, letterSpacing: 4.5, fontFamily: fonts.bodySemibold, marginBottom: 12 },
+  title: { color: colors.ink, fontSize: 38, fontFamily: fonts.displaySemibold, letterSpacing: -1.25, lineHeight: 43 },
+  subtitle: { color: colors.muted, fontFamily: fonts.bodyMedium, marginTop: 10, fontSize: 15 },
+  quickInput: { minHeight: 60, borderRadius: 22, marginBottom: 32 },
+  quickInputInner: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingLeft: 18, paddingRight: 8 },
+  input: { flex: 1, color: colors.ink, fontFamily: fonts.bodyMedium, minHeight: 44, fontSize: 15 },
   quickButton: { width: 46, height: 46, borderRadius: 17, backgroundColor: colors.blue, alignItems: 'center', justifyContent: 'center' },
-  quickButtonText: { color: '#fff', fontWeight: '700', fontSize: 26, lineHeight: 28 },
+  quickButtonText: { color: '#fff', fontFamily: fonts.displayMedium, fontSize: 26, lineHeight: 28 },
   group: { marginBottom: 30 },
   sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 13 },
-  section: { color: '#9dc6ff', fontSize: 12, letterSpacing: 4.0, fontWeight: '800' },
-  sectionHint: { color: colors.muted, fontWeight: '600', fontSize: 13 },
-  empty: { color: colors.muted, fontWeight: '600', paddingVertical: 8, fontSize: 15 },
-  card: { minHeight: 78, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, flexDirection: 'row', alignItems: 'center', padding: 15, marginBottom: 10 },
+  section: { color: '#9dc6ff', fontSize: 12, letterSpacing: 4.0, fontFamily: fonts.bodySemibold },
+  sectionHint: { color: colors.muted, fontFamily: fonts.bodyMedium, fontSize: 13 },
+  empty: { color: colors.muted, fontFamily: fonts.bodyMedium, paddingVertical: 8, fontSize: 15 },
+  card: { minHeight: 78, borderRadius: 22, marginBottom: 10 },
+  cardInner: { flex: 1, flexDirection: 'row', alignItems: 'center', padding: 15 },
   cardDone: { opacity: 0.62 },
   check: { width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.18)', marginRight: 13, alignItems: 'center', justifyContent: 'center' },
   checkDone: { backgroundColor: colors.blue, borderColor: colors.blue },
-  checkMark: { color: '#fff', fontWeight: '800', fontSize: 13 },
+  checkMark: { color: '#fff', fontFamily: fonts.bodySemibold, fontSize: 13 },
   taskTextWrap: { flex: 1 },
-  taskTitle: { color: colors.ink, fontSize: 15, lineHeight: 20, fontWeight: '700' },
+  taskTitle: { color: colors.ink, fontSize: 15, lineHeight: 20, fontFamily: fonts.bodySemibold },
   done: { color: colors.muted, textDecorationLine: 'line-through' },
-  meta: { color: colors.muted, marginTop: 5, fontWeight: '600', fontSize: 12 },
+  meta: { color: colors.muted, marginTop: 5, fontFamily: fonts.bodyMedium, fontSize: 12 },
   timeChip: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: 'rgba(99,167,255,0.12)', borderWidth: 1, borderColor: 'rgba(99,167,255,0.20)' },
-  timeText: { color: '#a8ccff', fontWeight: '700', fontSize: 12 },
+  timeText: { color: '#a8ccff', fontFamily: fonts.bodySemibold, fontSize: 12 },
   fab: { position: 'absolute', right: 22, bottom: 82, width: 54, height: 54, borderRadius: 27, backgroundColor: colors.blue, alignItems: 'center', justifyContent: 'center', shadowColor: colors.blue, shadowOpacity: 0.24, shadowRadius: 12, elevation: 8 },
-  fabText: { color: '#fff', fontWeight: '400', fontSize: 32, lineHeight: 34 },
+  fabText: { color: '#fff', fontFamily: fonts.displayMedium, fontSize: 32, lineHeight: 34 },
 });
