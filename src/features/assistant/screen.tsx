@@ -86,6 +86,9 @@ export default function AssistantScreen() {
       <Text style={styles.prompt}>{recorderState.isRecording ? `${Math.round(recorderState.durationMillis / 1000)}s · tap to stop` : voiceDraft ? `${voiceDraft.seconds}s captured. Type transcript below.` : busy ? 'Streaming Hermes…' : 'Tap the orb to talk.'}</Text>
       {!hasChat ? <Text style={styles.helper}>Ask, dump a thought, or capture a task without leaving the main page.</Text> : null}
     </View>
+    {!hasChat ? <View style={styles.quickRow}>
+      {['What should I do next?', 'Turn this into tasks', 'Log food from my day'].map(text => <Pressable key={text} onPress={() => setMessage(text)} style={styles.quickChip}><Text style={styles.quickChipText}>{text}</Text></Pressable>)}
+    </View> : null}
     {hasChat ? <ScrollView ref={scroller} style={styles.thread} contentContainerStyle={styles.threadInner}>{lines.map(line => <View key={line.id} style={[styles.bubble, line.role === 'user' ? styles.userBubble : styles.assistantBubble]}><Text style={[styles.bubbleText, line.role === 'user' && styles.userText, line.source === 'typing' && styles.thinking, line.source === 'error' && styles.errorText]}>{line.text || '…'}</Text></View>)}</ScrollView> : null}
     <GlassCard style={styles.composer} contentStyle={styles.composerInner}><TextInput value={message} onChangeText={setMessage} placeholder={voiceDraft ? 'Type what you said…' : 'Message Hermes…'} placeholderTextColor="#656b76" multiline style={styles.input} /><Pressable accessibilityRole="button" disabled={busy} onPress={() => send(message, voiceDraft ? 'voice' : 'typed')} style={[styles.send, busy && styles.sendBusy]}><Text style={styles.sendText}>{busy ? '…' : 'Send'}</Text></Pressable></GlassCard>
     <GlassCard style={styles.ttsCard} contentStyle={styles.ttsCardInner}><View><Text style={styles.ttsTitle}>Speak responses aloud</Text><Text style={styles.ttsSub}>Read answers via voice</Text></View><Switch value={autoSpeak} onValueChange={setAutoSpeak} trackColor={{ false: '#2a2e36', true: colors.primary }} thumbColor="#ffffff" /></GlassCard>
@@ -101,10 +104,13 @@ const styles = StyleSheet.create({
   statusPill: { minHeight: 30, borderRadius: 15, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.045)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.075)' },
   statusDot: { color: colors.lime, fontSize: 10, lineHeight: 12 },
   statusText: { color: colors.soft, fontSize: 12, fontFamily: fonts.bodySemibold, textTransform: 'uppercase', letterSpacing: 1.4 },
-  centerZone: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 52, paddingBottom: 38 },
+  centerZone: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 46, paddingBottom: 28 },
   centerZoneWithChat: { flex: 0, paddingTop: 24, paddingBottom: 16 },
   prompt: { color: colors.ink, fontSize: 20, fontFamily: fonts.displayMedium, marginTop: 42, textAlign: 'center', letterSpacing: -0.3 },
   helper: { maxWidth: 300, color: colors.muted, textAlign: 'center', fontFamily: fonts.bodyMedium, lineHeight: 20, marginTop: 12 },
+  quickRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginBottom: 14 },
+  quickChip: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: 'rgba(138,124,255,0.10)', borderWidth: 1, borderColor: 'rgba(138,124,255,0.16)' },
+  quickChipText: { color: '#c8c2ff', fontFamily: fonts.bodySemibold, fontSize: 12 },
   thread: { maxHeight: 200, marginBottom: 10, opacity: 0.92 },
   threadInner: { paddingBottom: 8 },
   bubble: { borderRadius: 18, paddingVertical: 12, paddingHorizontal: 14, marginBottom: 10, maxWidth: '90%' },

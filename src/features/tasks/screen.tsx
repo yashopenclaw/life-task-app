@@ -34,7 +34,7 @@ export default function TasksScreen() {
       <View style={styles.topLine}><View><Text style={styles.kicker}>TODAY</Text><Text style={styles.title}>Tasks</Text><Text style={styles.subtitle}>{done} of {tasks.length || 0} done · keep the momentum</Text></View></View>
       <View style={styles.statsRow}><Stat value={open} label="OPEN" /><Stat value={done} label="DONE" /><Stat value={grouped.timewise.length} label="TIMED" /></View>
       {inputOpen ? <GlassCard style={styles.quickInput} contentStyle={styles.quickInputInner}><TextInput value={message} onChangeText={setMessage} placeholder="Add by natural language…" placeholderTextColor="#6b707b" style={styles.input} onSubmitEditing={addNatural} autoFocus /><Pressable disabled={busy} onPress={addNatural} style={styles.quickButton}><Text style={styles.quickButtonText}>{busy ? '…' : '+'}</Text></Pressable><Pressable onPress={() => { setInputOpen(false); setMessage(''); }} style={styles.collapseButton}><Text style={styles.collapseText}>×</Text></Pressable></GlassCard> : null}
-      {buckets.map(bucket => <View key={bucket.key} style={styles.group}><View style={styles.sectionRow}><Text style={styles.section}>{bucket.title}</Text><Text style={styles.sectionHint}>{bucket.hint}</Text></View>{grouped[bucket.key].length === 0 ? <Text style={styles.empty}>Nothing here.</Text> : grouped[bucket.key].map(task => <TaskCard key={task.id} task={task} onToggle={() => complete(task)} />)}</View>)}
+      {buckets.map(bucket => <View key={bucket.key} style={styles.group}><View style={styles.sectionRow}><Text style={styles.section}>{bucket.title}</Text><View style={styles.bucketMeta}><Text style={styles.bucketCount}>{grouped[bucket.key].length}</Text><Text style={styles.sectionHint}>{bucket.hint}</Text></View></View>{grouped[bucket.key].length === 0 ? <GlassCard style={styles.emptyCard} contentStyle={styles.emptyCardInner}><Text style={styles.empty}>Nothing here.</Text></GlassCard> : grouped[bucket.key].map(task => <TaskCard key={task.id} task={task} onToggle={() => complete(task)} />)}</View>)}
     </ScrollView>
     {!inputOpen ? <Pressable onPress={() => setInputOpen(true)} style={styles.fab}><Text style={styles.fabText}>+</Text></Pressable> : null}
   </View>;
@@ -67,8 +67,12 @@ const styles = StyleSheet.create({
   group: { marginBottom: 30 },
   sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 13 },
   section: { color: '#9dc6ff', fontSize: 12, letterSpacing: 4.0, fontFamily: fonts.bodySemibold },
+  bucketMeta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  bucketCount: { minWidth: 24, overflow: 'hidden', borderRadius: 12, paddingHorizontal: 7, paddingVertical: 3, textAlign: 'center', color: '#050608', backgroundColor: '#9dc6ff', fontFamily: fonts.bodySemibold, fontSize: 11 },
   sectionHint: { color: colors.muted, fontFamily: fonts.bodyMedium, fontSize: 13 },
-  empty: { color: colors.muted, fontFamily: fonts.bodyMedium, paddingVertical: 8, fontSize: 15 },
+  emptyCard: { minHeight: 54, borderRadius: 18, opacity: 0.55 },
+  emptyCardInner: { flex: 1, justifyContent: 'center', paddingHorizontal: 14 },
+  empty: { color: colors.muted, fontFamily: fonts.bodyMedium, fontSize: 15 },
   card: { minHeight: 78, borderRadius: 22, marginBottom: 10 },
   cardInner: { flex: 1, flexDirection: 'row', alignItems: 'center', padding: 15 },
   cardDone: { opacity: 0.62 },
