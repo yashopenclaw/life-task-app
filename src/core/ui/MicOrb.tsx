@@ -19,7 +19,7 @@ export function MicOrb({ recording, onPress }: { recording: boolean; onPress: ()
   }));
 
   return <View style={styles.wrap}>
-    <Animated.View pointerEvents="none" style={[styles.halo, recording && styles.haloActive, haloStyle]} />
+    <Animated.View style={[styles.halo, recording && styles.haloActive, haloStyle]} />
     {recording ? <><Ripple delay={0} /><Ripple delay={950} /></> : null}
     <Pressable accessibilityRole="button" onPress={onPress}>
       <Animated.View style={[styles.orb, recording && styles.orbActive, orbStyle]}>
@@ -35,7 +35,7 @@ function Ripple({ delay }: { delay: number }) {
     p.value = withDelay(delay, withRepeat(withTiming(1, { duration: 1900, easing: Easing.out(Easing.quad) }), -1, false));
   }, [p, delay]);
   const style = useAnimatedStyle(() => ({ opacity: 0.45 * (1 - p.value), transform: [{ scale: 0.72 + p.value * 1.05 }] }));
-  return <Animated.View pointerEvents="none" style={[styles.ripple, style]} />;
+  return <Animated.View style={[styles.ripple, style]} />;
 }
 
 function Equalizer() {
@@ -54,9 +54,9 @@ function Bar({ index }: { index: number }) {
 
 const styles = StyleSheet.create({
   wrap: { width: 176, height: 176, alignItems: 'center', justifyContent: 'center' },
-  halo: { position: 'absolute', width: 176, height: 176, borderRadius: 88, backgroundColor: 'rgba(138,124,255,0.12)', borderWidth: 1, borderColor: 'rgba(138,124,255,0.10)' },
+  halo: { pointerEvents: 'none', position: 'absolute', width: 176, height: 176, borderRadius: 88, backgroundColor: 'rgba(138,124,255,0.12)', borderWidth: 1, borderColor: 'rgba(138,124,255,0.10)' },
   haloActive: { backgroundColor: 'rgba(201,255,74,0.16)', borderColor: 'rgba(201,255,74,0.16)' },
-  ripple: { position: 'absolute', width: 132, height: 132, borderRadius: 66, borderWidth: 2, borderColor: 'rgba(201,255,74,0.55)' },
+  ripple: { pointerEvents: 'none', position: 'absolute', width: 132, height: 132, borderRadius: 66, borderWidth: 2, borderColor: 'rgba(201,255,74,0.55)' },
   orb: { width: 132, height: 132, borderRadius: 66, backgroundColor: '#8a7cff', alignItems: 'center', justifyContent: 'center', shadowColor: '#8a7cff', shadowOpacity: 0.34, shadowRadius: 22, elevation: 12 },
   orbActive: { backgroundColor: '#c9ff4a', shadowColor: '#c9ff4a', shadowOpacity: 0.5, shadowRadius: 28 },
   eq: { flexDirection: 'row', alignItems: 'center', height: 36, gap: 5 },
