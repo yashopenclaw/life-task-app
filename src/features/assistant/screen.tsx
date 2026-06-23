@@ -71,7 +71,7 @@ export default function AssistantScreen() {
   const hasChat = lines.length > 0;
 
   return <View style={styles.root}>
-    <View style={styles.topLine}><Text style={styles.kicker}>TUESDAY · GOOD EVENING</Text><View style={styles.settingsDot} /></View>
+    <View style={styles.topLine}><Text style={styles.kicker}>TUESDAY · GOOD EVENING</Text></View>
     <Text style={styles.greeting}>Hi, Yash</Text>
     <View style={[styles.centerZone, hasChat && styles.centerZoneWithChat]}>
       <Pressable accessibilityRole="button" onPress={toggleRecording} style={[styles.orb, recorderState.isRecording && styles.orbActive]}>

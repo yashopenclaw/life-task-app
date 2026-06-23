@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { useAsync } from '../../core/useAsync';
 import { State } from '../../core/ui/atoms';
 import { MicGlyph } from '../../core/ui/MicGlyph';
@@ -27,13 +28,26 @@ export default function CaloriesScreen() {
   if (loading) return <State loading />; if (error) return <State error={error} retry={load} />;
 
   return <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.wrap}>
-    <View style={styles.topLine}><View><Text style={styles.kicker}>TODAY · NUTRITION</Text><Text style={styles.title}>Calories</Text></View><View style={styles.settingsDot} /></View>
-    <View style={styles.ringWrap}><View style={styles.ringOuter}><View style={styles.ringInner}><Text style={styles.total}>{total.toLocaleString('en-IN')}</Text><Text style={styles.goal}>of {DAILY_GOAL.toLocaleString('en-IN')} kcal</Text><Text style={styles.left}>{left.toLocaleString('en-IN')} LEFT</Text></View></View></View>
+    <View style={styles.topLine}><View><Text style={styles.kicker}>TODAY · NUTRITION</Text><Text style={styles.title}>Calories</Text></View></View>
+    <View style={styles.ringWrap}><CalorieRing total={total} left={left} /></View>
     <View style={styles.macroRow}><Macro value={Math.round(macros.protein)} label="PROTEIN" color="#f3be65" /><Macro value={Math.round(macros.carbs)} label="CARBS" color={colors.lime} /><Macro value={Math.round(macros.fat)} label="FAT" color="#e4d561" /></View>
     <GlassCard style={styles.inputBar} contentStyle={styles.inputBarInner}><TextInput value={message} onChangeText={setMessage} placeholder={'Say or type — "two eggs and toast"'} placeholderTextColor="#6b707b" style={styles.input} onSubmitEditing={() => addNatural('typed')} /><Pressable onPress={() => addNatural('voice')} style={styles.micButton}><MicGlyph size={23} /></Pressable></GlassCard>
     <View style={styles.sectionRow}><Text style={styles.section}>TODAY</Text><Text style={styles.entries}>{items.length} entries</Text></View>
     {items.length === 0 ? <Text style={styles.empty}>No food logged yet.</Text> : items.map(entry => <GlassCard key={entry.id} onLongPress={() => remove(entry.id)} style={styles.foodCard} contentStyle={styles.foodCardInner}><View style={styles.foodMiddle}><Text style={styles.foodTitle}>{entry.item}</Text><Text style={styles.foodSub}>{entry.nutrition?.serving || entry.source}</Text></View><Text style={styles.foodCal}>{entry.calories}</Text></GlassCard>)}
   </ScrollView>;
+}
+function CalorieRing({ total, left }: { total: number; left: number }) {
+  const circumference = 439.8;
+  const progress = Math.max(0, Math.min(1, total / DAILY_GOAL));
+  const dashOffset = circumference * (1 - progress);
+  return <View style={styles.ringOuter}>
+    <Svg width={168} height={168} viewBox="0 0 168 168" style={styles.ringSvg}>
+      <Defs><LinearGradient id="calorieArc" x1="20" y1="20" x2="148" y2="148"><Stop offset="0" stopColor="#f3be65" /><Stop offset="1" stopColor={colors.lime} /></LinearGradient></Defs>
+      <Circle cx="84" cy="84" r="70" stroke="rgba(255,255,255,0.07)" strokeWidth="14" fill="transparent" />
+      <Circle cx="84" cy="84" r="70" stroke="url(#calorieArc)" strokeWidth="14" fill="transparent" strokeLinecap="round" strokeDasharray={`${circumference} ${circumference}`} strokeDashoffset={dashOffset} rotation="-90" origin="84,84" />
+    </Svg>
+    <View style={styles.ringInner}><Text style={styles.total}>{total.toLocaleString('en-IN')}</Text><Text style={styles.goal}>of {DAILY_GOAL.toLocaleString('en-IN')} kcal</Text><Text style={styles.left}>{left.toLocaleString('en-IN')} LEFT</Text></View>
+  </View>;
 }
 function Macro({ value, label, color }: { value: number; label: string; color: string }) { return <GlassCard style={styles.macro} contentStyle={styles.macroInner}><Text style={[styles.macroValue, { color }]}>{value}g</Text><Text style={styles.macroLabel}>{label}</Text></GlassCard>; }
 const styles = StyleSheet.create({
@@ -43,8 +57,9 @@ const styles = StyleSheet.create({
   kicker: { color: '#8b909a', fontSize: 11, letterSpacing: 4.5, fontFamily: fonts.bodySemibold, marginBottom: 12 },
   title: { color: colors.ink, fontSize: 38, lineHeight: 43, fontFamily: fonts.displaySemibold, letterSpacing: -1.3 },
   ringWrap: { alignItems: 'center', marginTop: 36, marginBottom: 28 },
-  ringOuter: { width: 154, height: 154, borderRadius: 77, borderWidth: 10, borderColor: colors.lime, alignItems: 'center', justifyContent: 'center', shadowColor: colors.lime, shadowOpacity: 0.18, shadowRadius: 18, elevation: 9 },
-  ringInner: { width: 118, height: 118, borderRadius: 59, backgroundColor: 'rgba(255,255,255,0.045)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+  ringOuter: { width: 168, height: 168, alignItems: 'center', justifyContent: 'center', shadowColor: colors.lime, shadowOpacity: 0.40, shadowRadius: 18, elevation: 9 },
+  ringSvg: { position: 'absolute' },
+  ringInner: { width: 118, height: 118, borderRadius: 59, alignItems: 'center', justifyContent: 'center' },
   total: { color: colors.ink, fontSize: 42, fontFamily: fonts.displaySemibold, letterSpacing: -1.4 },
   goal: { color: colors.muted, fontSize: 13, fontFamily: fonts.bodyMedium, marginTop: 2 },
   left: { color: colors.lime, fontSize: 13, fontFamily: fonts.bodySemibold, marginTop: 6, letterSpacing: 1.2 },

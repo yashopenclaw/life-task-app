@@ -18,9 +18,10 @@ export default function TasksScreen() {
   const { data, loading, error, load } = useAsync(useCallback(() => tasksApi.list(), []));
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [inputOpen, setInputOpen] = useState(false);
   async function addNatural() {
     const clean = message.trim(); if (!clean || busy) return;
-    setBusy(true); try { await tasksApi.natural(clean, 'typed'); setMessage(''); await load(); } finally { setBusy(false); }
+    setBusy(true); try { await tasksApi.natural(clean, 'typed'); setMessage(''); setInputOpen(false); await load(); } finally { setBusy(false); }
   }
   async function complete(task: Task) { await tasksApi.update(task.id, { done: !task.done }); await load(); }
   const tasks = data || [];
@@ -29,11 +30,11 @@ export default function TasksScreen() {
   if (loading) return <State loading />; if (error) return <State error={error} retry={load} />;
   return <View style={styles.root}>
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.wrap}>
-      <View style={styles.topLine}><View><Text style={styles.kicker}>TODAY</Text><Text style={styles.title}>Tasks</Text><Text style={styles.subtitle}>{done} of {tasks.length || 0} done · keep the momentum</Text></View><View style={styles.settingsDot} /></View>
-      <GlassCard style={styles.quickInput} contentStyle={styles.quickInputInner}><TextInput value={message} onChangeText={setMessage} placeholder="Add by natural language…" placeholderTextColor="#6b707b" style={styles.input} onSubmitEditing={addNatural} /><Pressable disabled={busy} onPress={addNatural} style={styles.quickButton}><Text style={styles.quickButtonText}>{busy ? '…' : '+'}</Text></Pressable></GlassCard>
+      <View style={styles.topLine}><View><Text style={styles.kicker}>TODAY</Text><Text style={styles.title}>Tasks</Text><Text style={styles.subtitle}>{done} of {tasks.length || 0} done · keep the momentum</Text></View></View>
+      {inputOpen ? <GlassCard style={styles.quickInput} contentStyle={styles.quickInputInner}><TextInput value={message} onChangeText={setMessage} placeholder="Add by natural language…" placeholderTextColor="#6b707b" style={styles.input} onSubmitEditing={addNatural} autoFocus /><Pressable disabled={busy} onPress={addNatural} style={styles.quickButton}><Text style={styles.quickButtonText}>{busy ? '…' : '+'}</Text></Pressable><Pressable onPress={() => { setInputOpen(false); setMessage(''); }} style={styles.collapseButton}><Text style={styles.collapseText}>×</Text></Pressable></GlassCard> : null}
       {buckets.map(bucket => <View key={bucket.key} style={styles.group}><View style={styles.sectionRow}><Text style={styles.section}>{bucket.title}</Text><Text style={styles.sectionHint}>{bucket.hint}</Text></View>{grouped[bucket.key].length === 0 ? <Text style={styles.empty}>Nothing here.</Text> : grouped[bucket.key].map(task => <TaskCard key={task.id} task={task} onToggle={() => complete(task)} />)}</View>)}
     </ScrollView>
-    <Pressable onPress={addNatural} style={styles.fab}><Text style={styles.fabText}>+</Text></Pressable>
+    {!inputOpen ? <Pressable onPress={() => setInputOpen(true)} style={styles.fab}><Text style={styles.fabText}>+</Text></Pressable> : null}
   </View>;
 }
 function TaskCard({ task, onToggle }: { task: Task; onToggle: () => void }) {
@@ -54,6 +55,8 @@ const styles = StyleSheet.create({
   input: { flex: 1, color: colors.ink, fontFamily: fonts.bodyMedium, minHeight: 44, fontSize: 15 },
   quickButton: { width: 46, height: 46, borderRadius: 17, backgroundColor: colors.blue, alignItems: 'center', justifyContent: 'center' },
   quickButtonText: { color: '#fff', fontFamily: fonts.displayMedium, fontSize: 26, lineHeight: 28 },
+  collapseButton: { width: 36, height: 46, alignItems: 'center', justifyContent: 'center' },
+  collapseText: { color: colors.muted, fontFamily: fonts.displayMedium, fontSize: 28, lineHeight: 30 },
   group: { marginBottom: 30 },
   sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 13 },
   section: { color: '#9dc6ff', fontSize: 12, letterSpacing: 4.0, fontFamily: fonts.bodySemibold },
