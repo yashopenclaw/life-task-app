@@ -1,13 +1,31 @@
+import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
+
+const AnimatedView = Animated.createAnimatedComponent(View);
 
 type Props = { accent?: string; accent2?: string };
 
 export function AuroraBackground({ accent = '#8a7cff', accent2 = '#c9ff4a' }: Props) {
+  const driftA = useSharedValue(0);
+  const driftB = useSharedValue(0);
+  const driftC = useSharedValue(0);
+
+  useEffect(() => {
+    driftA.value = withRepeat(withTiming(1, { duration: 22000, easing: Easing.inOut(Easing.sin) }), -1, true);
+    driftB.value = withRepeat(withTiming(1, { duration: 26000, easing: Easing.inOut(Easing.sin) }), -1, true);
+    driftC.value = withRepeat(withTiming(1, { duration: 18000, easing: Easing.inOut(Easing.sin) }), -1, true);
+  }, [driftA, driftB, driftC]);
+
+  const a = useAnimatedStyle(() => ({ transform: [{ translateX: -22 + driftA.value * 44 }, { translateY: -14 + driftA.value * 36 }, { scale: 1 + driftA.value * 0.12 }] }));
+  const b = useAnimatedStyle(() => ({ transform: [{ translateX: 22 - driftB.value * 44 }, { translateY: 18 - driftB.value * 40 }, { scale: 1.12 - driftB.value * 0.12 }] }));
+  const c = useAnimatedStyle(() => ({ transform: [{ translateX: -24 + driftC.value * 48 }, { translateY: 24 - driftC.value * 44 }, { scale: 1 + driftC.value * 0.1 }] }));
+
   return <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-    <View style={[styles.blob, styles.blobA]}><AuroraSvg id="a" color={accent} opacity={0.24} /></View>
-    <View style={[styles.blob, styles.blobB]}><AuroraSvg id="b" color={accent2} opacity={0.16} /></View>
-    <View style={[styles.blob, styles.blobC]}><AuroraSvg id="c" color={mix(accent, accent2)} opacity={0.32} /></View>
+    <AnimatedView style={[styles.blob, styles.blobA, a]}><AuroraSvg id="a" color={accent} opacity={0.24} /></AnimatedView>
+    <AnimatedView style={[styles.blob, styles.blobB, b]}><AuroraSvg id="b" color={accent2} opacity={0.16} /></AnimatedView>
+    <AnimatedView style={[styles.blob, styles.blobC, c]}><AuroraSvg id="c" color={mix(accent, accent2)} opacity={0.32} /></AnimatedView>
   </View>;
 }
 
@@ -29,7 +47,7 @@ function mix(a: string, b: string) {
 
 const styles = StyleSheet.create({
   blob: { position: 'absolute', width: 360, height: 360 },
-  blobA: { top: -110, left: -140, transform: [{ translateX: 6 }, { translateY: 8 }, { scale: 1.05 }] },
-  blobB: { top: 150, right: -170, transform: [{ translateX: -8 }, { translateY: 10 }, { scale: 1.08 }] },
-  blobC: { bottom: -130, left: 60, transform: [{ translateX: 4 }, { translateY: -6 }, { scale: 1.02 }] },
+  blobA: { top: -110, left: -140 },
+  blobB: { top: 150, right: -170 },
+  blobC: { bottom: -130, left: 60 },
 });

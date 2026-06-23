@@ -9,9 +9,9 @@ import { GlassCard } from './ui/GlassCard';
 
 const visibleTabs = ['assistant', 'calories', 'tasks'];
 const iconMap: Record<string, TabIconName> = {
-  assistant: 'mic-outline',
-  calories: 'flame-outline',
-  tasks: 'checkbox-outline',
+  assistant: 'mic',
+  calories: 'flame',
+  tasks: 'check',
 };
 const accentMap: Record<string, { accent: string; accent2: string }> = {
   assistant: { accent: colors.primary, accent2: colors.blue },
@@ -53,7 +53,7 @@ export function NavShell() {
             const active = selectedKey === f.key;
             const accent = (accentMap[f.key] || accentMap.assistant).accent;
             return <Pressable key={f.key} accessibilityRole="button" onPress={() => selectTab(f.key)} style={[styles.iconButton, active && { backgroundColor: accent, shadowColor: accent }]}>
-              <TabIcon name={iconMap[f.key] || 'document-text-outline'} active={active} color={active ? '#050608' : '#747985'} size={22} />
+              <TabIcon name={iconMap[f.key] || 'square'} active={active} color={active ? '#050608' : '#747985'} size={22} />
             </Pressable>;
           })}
         </View>
