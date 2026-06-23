@@ -1,11 +1,12 @@
 import { ComponentType, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { features } from '../features';
 import { colors } from './theme';
 import { loadJson, saveJson } from './storage';
 import { TabIcon, TabIconName } from './ui/TabIcon';
 import { AuroraBackground } from './ui/AuroraBackground';
 import { GlassCard } from './ui/GlassCard';
+import { fonts } from './fonts';
 
 const visibleTabs = ['assistant', 'calories', 'tasks'];
 const iconMap: Record<string, TabIconName> = {
@@ -43,7 +44,7 @@ export function NavShell() {
       {primaryFeatures.map(feature => {
         const Screen = feature.component as ComponentType;
         const active = selectedKey === feature.key;
-        return <View key={feature.key} pointerEvents={active ? 'auto' : 'none'} style={[styles.screenSlot, !active && styles.screenHidden]}><Screen /></View>;
+        return <View key={feature.key} style={[styles.screenSlot, !active && styles.screenHidden]}><Screen /></View>;
       })}
     </View>
     <View style={styles.bottomWrap}>
@@ -52,8 +53,9 @@ export function NavShell() {
           {primaryFeatures.map(f => {
             const active = selectedKey === f.key;
             const accent = (accentMap[f.key] || accentMap.assistant).accent;
-            return <Pressable key={f.key} accessibilityRole="button" onPress={() => selectTab(f.key)} style={[styles.iconButton, active && { backgroundColor: accent, shadowColor: accent }]}>
+            return <Pressable key={f.key} accessibilityRole="button" onPress={() => selectTab(f.key)} style={[styles.iconButton, active && styles.iconButtonActive, active && { backgroundColor: accent, shadowColor: accent }]}>
               <TabIcon name={iconMap[f.key] || 'square'} active={active} color={active ? '#050608' : '#747985'} size={22} />
+              {active ? <Text style={styles.tabLabel}>{f.title}</Text> : null}
             </Pressable>;
           })}
         </View>
@@ -67,9 +69,11 @@ const styles = StyleSheet.create({
   contentCompact: {},
   screenSlot: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, paddingHorizontal: 24, paddingTop: 54, paddingBottom: 92 },
   screenHidden: { opacity: 0, display: 'none' },
-  bottomWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 28, paddingBottom: 18, paddingTop: 8 },
-  rail: { height: 58, borderRadius: 29, shadowColor: '#000', shadowOpacity: 0.42, shadowRadius: 22, elevation: 16 },
+  bottomWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 22, paddingBottom: 18, paddingTop: 8 },
+  rail: { height: 64, borderRadius: 32, shadowColor: '#000', shadowOpacity: 0.42, shadowRadius: 22, elevation: 16 },
   railContent: { flex: 1 },
-  railScroller: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingHorizontal: 10, gap: 10 },
-  iconButton: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center', shadowOpacity: 0.30, shadowRadius: 10, elevation: 6 },
+  railScroller: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 9, gap: 8 },
+  iconButton: { flex: 1, maxWidth: 126, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, shadowOpacity: 0.30, shadowRadius: 10, elevation: 6 },
+  iconButtonActive: { flex: 1.45 },
+  tabLabel: { color: '#050608', fontFamily: fonts.bodySemibold, fontSize: 12, letterSpacing: 0.2 },
 });
