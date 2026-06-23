@@ -54,8 +54,8 @@ export function NavShell() {
             const active = selectedKey === f.key;
             const accent = (accentMap[f.key] || accentMap.assistant).accent;
             return <Pressable key={f.key} accessibilityRole="button" onPress={() => selectTab(f.key)} style={[styles.iconButton, active && styles.iconButtonActive, active && { backgroundColor: accent, shadowColor: accent }]}>
-              <TabIcon name={iconMap[f.key] || 'square'} active={active} color={active ? '#050608' : '#747985'} size={22} />
-              {active ? <Text style={styles.tabLabel}>{f.title}</Text> : null}
+              <TabIcon name={iconMap[f.key] || 'square'} active={active} color={active ? '#050608' : '#7f8590'} size={21} />
+              <Text numberOfLines={1} style={[styles.tabLabel, !active && styles.tabLabelMuted]}>{f.title}</Text>
             </Pressable>;
           })}
         </View>
@@ -72,8 +72,9 @@ const styles = StyleSheet.create({
   bottomWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 22, paddingBottom: 18, paddingTop: 8 },
   rail: { height: 64, borderRadius: 32, shadowColor: '#000', shadowOpacity: 0.42, shadowRadius: 22, elevation: 16 },
   railContent: { flex: 1 },
-  railScroller: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 9, gap: 8 },
-  iconButton: { flex: 1, maxWidth: 126, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, shadowOpacity: 0.30, shadowRadius: 10, elevation: 6 },
-  iconButtonActive: { flex: 1.45 },
-  tabLabel: { color: '#050608', fontFamily: fonts.bodySemibold, fontSize: 12, letterSpacing: 0.2 },
+  railScroller: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8, gap: 7 },
+  iconButton: { flex: 1, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6, paddingHorizontal: 8, shadowOpacity: 0.24, shadowRadius: 10, elevation: 5 },
+  iconButtonActive: { flex: 1.12 },
+  tabLabel: { color: '#050608', fontFamily: fonts.bodySemibold, fontSize: 11.5, letterSpacing: 0.1 },
+  tabLabelMuted: { color: '#8f96a1' },
 });
