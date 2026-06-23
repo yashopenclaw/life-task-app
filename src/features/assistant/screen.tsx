@@ -18,12 +18,33 @@ export default function AssistantScreen() {
   const scroller = useRef<ScrollView>(null);
   useEffect(() => { (async () => { const status = await AudioModule.requestRecordingPermissionsAsync(); if (status.granted) await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true }); })().catch(() => undefined); return () => { Speech.stop(); }; }, []);
   useEffect(() => { setTimeout(() => scroller.current?.scrollToEnd({ animated: true }), 80); }, [lines, busy]);
+  function revealReply(id: string, fullText: string, sourceName: string) {
+    const words = fullText.split(/(\s+)/);
+    let index = 0;
+    setLines(prev => [...prev, { id, role: 'assistant', text: '', source: sourceName }]);
+    const timer = setInterval(() => {
+      index += 2;
+      const next = words.slice(0, index).join('');
+      setLines(prev => prev.map(line => line.id === id ? { ...line, text: next || '…' } : line));
+      if (index >= words.length) clearInterval(timer);
+    }, 28);
+  }
   async function send(text: string, source: 'typed' | 'voice' = 'typed') {
     const clean = text.trim(); if (!clean || busy) return;
-    setBusy(true); setLines(prev => [...prev, { id: `${Date.now()}-u`, role: 'user', text: clean, source }]); setMessage(''); if (source === 'voice') setVoiceDraft(null);
-    try { const reply = await assistantApi.send({ message: clean, source }); setLines(prev => [...prev, { id: `${Date.now()}-a`, role: 'assistant', text: reply.text, source: reply.source }]); if (autoSpeak) { Speech.stop(); Speech.speak(reply.text.slice(0, Speech.maxSpeechInputLength || 800), { rate: 0.98, pitch: 1.0 }); } }
-    catch (error) { const text = error instanceof Error ? error.message : 'Assistant failed'; setLines(prev => [...prev, { id: `${Date.now()}-e`, role: 'assistant', text, source: 'error' }]); }
-    finally { setBusy(false); }
+    const now = Date.now();
+    const assistantId = `${now}-a`;
+    setBusy(true);
+    setLines(prev => [...prev, { id: `${now}-u`, role: 'user', text: clean, source }, { id: assistantId, role: 'assistant', text: 'Thinking…', source: 'typing' }]);
+    setMessage(''); if (source === 'voice') setVoiceDraft(null);
+    try {
+      const reply = await assistantApi.send({ message: clean, source });
+      setLines(prev => prev.filter(line => line.id !== assistantId));
+      revealReply(assistantId, reply.text, reply.source);
+      if (autoSpeak) { Speech.stop(); Speech.speak(reply.text.slice(0, Speech.maxSpeechInputLength || 800), { rate: 0.98, pitch: 1.0 }); }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Assistant failed';
+      setLines(prev => prev.map(line => line.id === assistantId ? { ...line, text: msg, source: 'error' } : line));
+    } finally { setBusy(false); }
   }
   async function toggleRecording() {
     if (recorderState.isRecording) { const seconds = Math.max(1, Math.round(recorderState.durationMillis / 1000)); await recorder.stop(); setVoiceDraft({ seconds }); return; }
@@ -36,8 +57,7 @@ export default function AssistantScreen() {
       <Text style={styles.sub}>{recorderState.isRecording ? `${Math.round(recorderState.durationMillis / 1000)}s · tap to stop` : voiceDraft ? `${voiceDraft.seconds}s captured. Add transcript below.` : 'Talk or type. Keep it messy.'}</Text>
     </View>
     <ScrollView ref={scroller} style={styles.thread} contentContainerStyle={styles.threadInner}>
-      {lines.map(line => <View key={line.id} style={[styles.bubble, line.role === 'user' ? styles.userBubble : styles.assistantBubble]}><Text style={[styles.bubbleText, line.role === 'user' && styles.userText]}>{line.text}</Text></View>)}
-      {busy ? <View style={[styles.bubble, styles.assistantBubble]}><Text style={styles.thinking}>Thinking…</Text></View> : null}
+      {lines.map(line => <View key={line.id} style={[styles.bubble, line.role === 'user' ? styles.userBubble : styles.assistantBubble]}><Text style={[styles.bubbleText, line.role === 'user' && styles.userText, line.source === 'typing' && styles.thinking]}>{line.text || '…'}</Text></View>)}
     </ScrollView>
     <View style={styles.composer}>
       <TextInput value={message} onChangeText={setMessage} placeholder={voiceDraft ? 'Type what you said…' : 'Message Hermes…'} placeholderTextColor="#62666d" multiline style={styles.input} />
