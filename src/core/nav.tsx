@@ -9,7 +9,7 @@ import { GlassCard } from './ui/GlassCard';
 
 const visibleTabs = ['assistant', 'tasks', 'calories', 'notes', 'summaries', 'brief', 'books'];
 const iconMap: Record<string, TabIconName> = {
-  assistant: 'mic', tasks: 'check-square', calories: 'zap', notes: 'feather', summaries: 'file-text', brief: 'file', books: 'book-open',
+  assistant: 'assistant', tasks: 'tasks', calories: 'calories', notes: 'notes', summaries: 'summaries', brief: 'brief', books: 'books',
 };
 const accentMap: Record<string, { accent: string; accent2: string }> = {
   assistant: { accent: colors.primary, accent2: colors.blue },
@@ -54,7 +54,7 @@ export function NavShell() {
             const active = selectedKey === f.key;
             const accent = (accentMap[f.key] || accentMap.assistant).accent;
             return <Pressable key={f.key} accessibilityRole="button" onPress={() => selectTab(f.key)} style={[styles.iconButton, active && { backgroundColor: accent, shadowColor: accent }]}>
-              <TabIcon name={iconMap[f.key] || 'file-text'} active={active} color={active ? '#050608' : '#747985'} size={22} />
+              <TabIcon name={iconMap[f.key] || 'summaries'} active={active} color={active ? '#050608' : '#747985'} size={22} />
             </Pressable>;
           })}
         </ScrollView>
