@@ -15,6 +15,10 @@ const CHAT_DRAFT_KEY = 'life-task:assistant-draft:v1';
 const AUTO_TTS_KEY = 'life-task:auto-tts:v1';
 const starter: ChatLine[] = [];
 
+function todayLabel() {
+  return new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' }).toUpperCase();
+}
+
 function normalizeSavedLines(lines: ChatLine[]) {
   return lines.map(line => line.source === 'typing' ? { ...line, text: 'Previous reply was interrupted. Send again if needed.', source: 'error' } : line);
 }
@@ -71,11 +75,16 @@ export default function AssistantScreen() {
   const hasChat = lines.length > 0;
 
   return <View style={styles.root}>
-    <View style={styles.topLine}><Text style={styles.kicker}>TUESDAY · GOOD EVENING</Text></View>
+    <View style={styles.topLine}><Text style={styles.kicker}>{todayLabel()} · HERMES</Text></View>
     <Text style={styles.greeting}>Hi, Yash</Text>
+    <View style={styles.statusRow}>
+      <View style={styles.statusPill}><Text style={styles.statusDot}>●</Text><Text style={styles.statusText}>{busy ? 'thinking' : recorderState.isRecording ? 'listening' : 'ready'}</Text></View>
+      <View style={styles.statusPill}><Text style={styles.statusText}>{autoSpeak ? 'voice on' : 'voice off'}</Text></View>
+    </View>
     <View style={[styles.centerZone, hasChat && styles.centerZoneWithChat]}>
       <MicOrb recording={recorderState.isRecording} onPress={toggleRecording} />
-      <Text style={styles.prompt}>{recorderState.isRecording ? `${Math.round(recorderState.durationMillis / 1000)}s · tap to stop` : voiceDraft ? `${voiceDraft.seconds}s captured. Type transcript below.` : busy ? 'Streaming Hermes…' : 'Capture by voice.'}</Text>
+      <Text style={styles.prompt}>{recorderState.isRecording ? `${Math.round(recorderState.durationMillis / 1000)}s · tap to stop` : voiceDraft ? `${voiceDraft.seconds}s captured. Type transcript below.` : busy ? 'Streaming Hermes…' : 'Tap the orb to talk.'}</Text>
+      {!hasChat ? <Text style={styles.helper}>Ask, dump a thought, or capture a task without leaving the main page.</Text> : null}
     </View>
     {hasChat ? <ScrollView ref={scroller} style={styles.thread} contentContainerStyle={styles.threadInner}>{lines.map(line => <View key={line.id} style={[styles.bubble, line.role === 'user' ? styles.userBubble : styles.assistantBubble]}><Text style={[styles.bubbleText, line.role === 'user' && styles.userText, line.source === 'typing' && styles.thinking, line.source === 'error' && styles.errorText]}>{line.text || '…'}</Text></View>)}</ScrollView> : null}
     <GlassCard style={styles.composer} contentStyle={styles.composerInner}><TextInput value={message} onChangeText={setMessage} placeholder={voiceDraft ? 'Type what you said…' : 'Message Hermes…'} placeholderTextColor="#656b76" multiline style={styles.input} /><Pressable accessibilityRole="button" disabled={busy} onPress={() => send(message, voiceDraft ? 'voice' : 'typed')} style={[styles.send, busy && styles.sendBusy]}><Text style={styles.sendText}>{busy ? '…' : 'Send'}</Text></Pressable></GlassCard>
@@ -88,9 +97,14 @@ const styles = StyleSheet.create({
   topLine: { alignItems: 'center', justifyContent: 'center' },
   kicker: { textAlign: 'center', color: '#7b808b', fontSize: 11, letterSpacing: 4.2, fontFamily: fonts.bodySemibold },
   greeting: { textAlign: 'center', color: colors.ink, fontSize: 34, fontFamily: fonts.displaySemibold, marginTop: 16, letterSpacing: -1.1 },
+  statusRow: { flexDirection: 'row', justifyContent: 'center', gap: 10, marginTop: 16 },
+  statusPill: { minHeight: 30, borderRadius: 15, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.045)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.075)' },
+  statusDot: { color: colors.lime, fontSize: 10, lineHeight: 12 },
+  statusText: { color: colors.soft, fontSize: 12, fontFamily: fonts.bodySemibold, textTransform: 'uppercase', letterSpacing: 1.4 },
   centerZone: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 52, paddingBottom: 38 },
   centerZoneWithChat: { flex: 0, paddingTop: 24, paddingBottom: 16 },
   prompt: { color: colors.ink, fontSize: 20, fontFamily: fonts.displayMedium, marginTop: 42, textAlign: 'center', letterSpacing: -0.3 },
+  helper: { maxWidth: 300, color: colors.muted, textAlign: 'center', fontFamily: fonts.bodyMedium, lineHeight: 20, marginTop: 12 },
   thread: { maxHeight: 200, marginBottom: 10, opacity: 0.92 },
   threadInner: { paddingBottom: 8 },
   bubble: { borderRadius: 18, paddingVertical: 12, paddingHorizontal: 14, marginBottom: 10, maxWidth: '90%' },
