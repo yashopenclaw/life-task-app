@@ -18,16 +18,8 @@ export default function AssistantScreen() {
   const scroller = useRef<ScrollView>(null);
   useEffect(() => { (async () => { const status = await AudioModule.requestRecordingPermissionsAsync(); if (status.granted) await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true }); })().catch(() => undefined); return () => { Speech.stop(); }; }, []);
   useEffect(() => { setTimeout(() => scroller.current?.scrollToEnd({ animated: true }), 80); }, [lines, busy]);
-  function revealReply(id: string, fullText: string, sourceName: string) {
-    const words = fullText.split(/(\s+)/);
-    let index = 0;
-    setLines(prev => [...prev, { id, role: 'assistant', text: '', source: sourceName }]);
-    const timer = setInterval(() => {
-      index += 2;
-      const next = words.slice(0, index).join('');
-      setLines(prev => prev.map(line => line.id === id ? { ...line, text: next || '…' } : line));
-      if (index >= words.length) clearInterval(timer);
-    }, 28);
+  function appendAssistantDelta(id: string, delta: string) {
+    setLines(prev => prev.map(line => line.id === id ? { ...line, text: line.text === 'Thinking…' ? delta : line.text + delta, source: 'hermes' } : line));
   }
   async function send(text: string, source: 'typed' | 'voice' = 'typed') {
     const clean = text.trim(); if (!clean || busy) return;
@@ -37,10 +29,14 @@ export default function AssistantScreen() {
     setLines(prev => [...prev, { id: `${now}-u`, role: 'user', text: clean, source }, { id: assistantId, role: 'assistant', text: 'Thinking…', source: 'typing' }]);
     setMessage(''); if (source === 'voice') setVoiceDraft(null);
     try {
-      const reply = await assistantApi.send({ message: clean, source });
-      setLines(prev => prev.filter(line => line.id !== assistantId));
-      revealReply(assistantId, reply.text, reply.source);
-      if (autoSpeak) { Speech.stop(); Speech.speak(reply.text.slice(0, Speech.maxSpeechInputLength || 800), { rate: 0.98, pitch: 1.0 }); }
+      let spoken = '';
+      spoken = await assistantApi.stream({ message: clean, source }, delta => appendAssistantDelta(assistantId, delta));
+      if (!spoken.trim()) {
+        const reply = await assistantApi.send({ message: clean, source });
+        spoken = reply.text;
+        setLines(prev => prev.map(line => line.id === assistantId ? { ...line, text: reply.text, source: reply.source } : line));
+      }
+      if (autoSpeak && spoken.trim()) { Speech.stop(); Speech.speak(spoken.slice(0, Speech.maxSpeechInputLength || 800), { rate: 0.98, pitch: 1.0 }); }
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Assistant failed';
       setLines(prev => prev.map(line => line.id === assistantId ? { ...line, text: msg, source: 'error' } : line));
