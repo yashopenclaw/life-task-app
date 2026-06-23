@@ -27,11 +27,13 @@ export default function TasksScreen() {
   const tasks = data || [];
   const done = tasks.filter(t => t.done).length;
   const open = tasks.length - done;
+  const progress = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
   const grouped = useMemo(() => Object.fromEntries(buckets.map(b => [b.key, tasks.filter(t => t.bucket === b.key)])) as Record<Bucket, Task[]>, [tasks]);
   if (loading) return <State loading />; if (error) return <State error={error} retry={load} />;
   return <View style={styles.root}>
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.wrap}>
       <View style={styles.topLine}><View><Text style={styles.kicker}>TODAY</Text><Text style={styles.title}>Tasks</Text><Text style={styles.subtitle}>{done} of {tasks.length || 0} done · keep the momentum</Text></View></View>
+      <GlassCard style={styles.progressCard} contentStyle={styles.progressInner}><View style={styles.progressCopy}><Text style={styles.progressLabel}>FOCUS LEFT</Text><Text style={styles.progressText}>{open ? `${open} open task${open === 1 ? '' : 's'}` : 'Clean slate.'}</Text></View><Text style={styles.progressPercent}>{progress}%</Text><View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${progress}%` }]} /></View></GlassCard>
       <View style={styles.statsRow}><Stat value={open} label="OPEN" /><Stat value={done} label="DONE" /><Stat value={grouped.timewise.length} label="TIMED" /></View>
       {inputOpen ? <GlassCard style={styles.quickInput} contentStyle={styles.quickInputInner}><TextInput value={message} onChangeText={setMessage} placeholder="Add by natural language…" placeholderTextColor="#6b707b" style={styles.input} onSubmitEditing={addNatural} autoFocus /><Pressable disabled={busy} onPress={addNatural} style={styles.quickButton}><Text style={styles.quickButtonText}>{busy ? '…' : '+'}</Text></Pressable><Pressable onPress={() => { setInputOpen(false); setMessage(''); }} style={styles.collapseButton}><Text style={styles.collapseText}>×</Text></Pressable></GlassCard> : null}
       {buckets.map(bucket => <View key={bucket.key} style={styles.group}><View style={styles.sectionRow}><Text style={styles.section}>{bucket.title}</Text><View style={styles.bucketMeta}><Text style={styles.bucketCount}>{grouped[bucket.key].length}</Text><Text style={styles.sectionHint}>{bucket.hint}</Text></View></View>{grouped[bucket.key].length === 0 ? <GlassCard style={styles.emptyCard} contentStyle={styles.emptyCardInner}><Text style={styles.empty}>Nothing here.</Text></GlassCard> : grouped[bucket.key].map(task => <TaskCard key={task.id} task={task} onToggle={() => complete(task)} />)}</View>)}
@@ -52,6 +54,14 @@ const styles = StyleSheet.create({
   kicker: { color: '#8b909a', fontSize: 11, letterSpacing: 4.5, fontFamily: fonts.bodySemibold, marginBottom: 12 },
   title: { color: colors.ink, fontSize: 38, fontFamily: fonts.displaySemibold, letterSpacing: -1.25, lineHeight: 43 },
   subtitle: { color: colors.muted, fontFamily: fonts.bodyMedium, marginTop: 10, fontSize: 15 },
+  progressCard: { minHeight: 92, borderRadius: 24, marginBottom: 14 },
+  progressInner: { flex: 1, padding: 16, justifyContent: 'center' },
+  progressCopy: { paddingRight: 74 },
+  progressLabel: { color: '#8fa9cf', fontFamily: fonts.bodySemibold, fontSize: 10, letterSpacing: 2.1 },
+  progressText: { color: colors.soft, fontFamily: fonts.bodyMedium, marginTop: 6, fontSize: 15 },
+  progressPercent: { position: 'absolute', right: 16, top: 14, color: colors.ink, fontFamily: fonts.displaySemibold, fontSize: 28, letterSpacing: -0.7 },
+  progressTrack: { height: 6, borderRadius: 999, overflow: 'hidden', marginTop: 14, backgroundColor: 'rgba(255,255,255,0.07)' },
+  progressFill: { height: 6, borderRadius: 999, backgroundColor: colors.blue },
   statsRow: { flexDirection: 'row', gap: 12, marginBottom: 24 },
   stat: { flex: 1, height: 72, borderRadius: 22 },
   statInner: { flex: 1, justifyContent: 'center', alignItems: 'center' },

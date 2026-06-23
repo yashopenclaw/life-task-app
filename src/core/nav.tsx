@@ -1,5 +1,5 @@
 import { ComponentType, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, SafeAreaView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { features } from '../features';
 import { colors } from './theme';
 import { loadJson, saveJson } from './storage';
@@ -38,7 +38,7 @@ export function NavShell() {
 
   const aurora = accentMap[selectedKey] || accentMap.assistant;
 
-  return <View style={styles.app}>
+  return <SafeAreaView style={styles.app}>
     <AuroraBackground accent={aurora.accent} accent2={aurora.accent2} />
     <View style={[styles.content, compact && styles.contentCompact]}>
       {primaryFeatures.map(feature => {
@@ -61,13 +61,13 @@ export function NavShell() {
         </View>
       </GlassCard>
     </View>
-  </View>;
+  </SafeAreaView>;
 }
 const styles = StyleSheet.create({
   app: { flex: 1, backgroundColor: colors.bg, overflow: 'hidden' },
   content: { flex: 1, maxWidth: 560, width: '100%', alignSelf: 'center' },
   contentCompact: {},
-  screenSlot: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, paddingHorizontal: 24, paddingTop: 54, paddingBottom: 92 },
+  screenSlot: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, paddingHorizontal: 24, paddingTop: 28, paddingBottom: 92 },
   screenHidden: { opacity: 0, display: 'none' },
   bottomWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 22, paddingBottom: 18, paddingTop: 8 },
   rail: { height: 64, borderRadius: 32, shadowColor: '#000', shadowOpacity: 0.42, shadowRadius: 22, elevation: 16 },

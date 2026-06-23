@@ -34,7 +34,7 @@ export default function CaloriesScreen() {
   return <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.wrap}>
     <View style={styles.topLine}><View><Text style={styles.kicker}>TODAY · NUTRITION</Text><Text style={styles.title}>Calories</Text></View></View>
     <View style={styles.ringWrap}><CalorieRing total={total} /></View>
-    <GlassCard style={styles.summaryCard} contentStyle={styles.summaryInner}><Text style={styles.summaryLabel}>DAILY PACE</Text><Text style={styles.summaryValue}>{percent}%</Text><Text style={styles.summaryCopy}>{total > DAILY_GOAL ? 'Goal crossed. Keep dinner light.' : `${(DAILY_GOAL - total).toLocaleString('en-IN')} kcal left for today.`}</Text></GlassCard>
+    <GlassCard style={styles.summaryCard} contentStyle={styles.summaryInner}><View style={styles.summaryTop}><View><Text style={styles.summaryLabel}>DAILY PACE</Text><Text style={styles.summaryCopy}>{total > DAILY_GOAL ? 'Goal crossed. Keep dinner light.' : `${(DAILY_GOAL - total).toLocaleString('en-IN')} kcal left for today.`}</Text></View><Text style={styles.summaryValue}>{percent}%</Text></View><View style={styles.meterTrack}><View style={[styles.meterFill, { width: `${Math.min(100, percent)}%` }]} /></View></GlassCard>
     <View style={styles.macroRow}><Macro value={Math.round(macros.protein)} label="PROTEIN" color="#f3be65" /><Macro value={Math.round(macros.carbs)} label="CARBS" color={colors.lime} /><Macro value={Math.round(macros.fat)} label="FAT" color="#e4d561" /></View>
     <GlassCard style={styles.inputBar} contentStyle={styles.inputBarInner}><TextInput value={message} onChangeText={setMessage} placeholder={'Say or type — "two eggs and toast"'} placeholderTextColor="#6b707b" style={styles.input} onSubmitEditing={() => addNatural('typed')} /><Pressable onPress={() => addNatural('voice')} style={styles.micButton}><MicGlyph size={23} /></Pressable></GlassCard>
     <View style={styles.quickFoodRow}>{quickFoods.map(food => <Pressable key={food} onPress={() => setMessage(food)} style={styles.quickFood}><Text style={styles.quickFoodText}>{food}</Text></Pressable>)}</View>
@@ -77,11 +77,14 @@ const styles = StyleSheet.create({
   total: { color: colors.ink, fontSize: 42, fontFamily: fonts.displaySemibold, letterSpacing: -1.4 },
   goal: { color: colors.muted, fontSize: 13, fontFamily: fonts.bodyMedium, marginTop: 2 },
   left: { color: colors.lime, fontSize: 13, fontFamily: fonts.bodySemibold, marginTop: 6, letterSpacing: 1.2 },
-  summaryCard: { minHeight: 78, borderRadius: 24, marginBottom: 16 },
-  summaryInner: { flex: 1, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', gap: 14 },
+  summaryCard: { minHeight: 92, borderRadius: 24, marginBottom: 16 },
+  summaryInner: { flex: 1, paddingHorizontal: 18, paddingVertical: 15, justifyContent: 'center', gap: 12 },
+  summaryTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14 },
   summaryLabel: { color: colors.muted, fontFamily: fonts.bodySemibold, fontSize: 10, letterSpacing: 2.2 },
   summaryValue: { color: colors.ink, fontFamily: fonts.displaySemibold, fontSize: 30, letterSpacing: -0.8 },
-  summaryCopy: { flex: 1, color: colors.soft, fontFamily: fonts.bodyMedium, lineHeight: 19, textAlign: 'right' },
+  summaryCopy: { color: colors.soft, fontFamily: fonts.bodyMedium, lineHeight: 19, marginTop: 5 },
+  meterTrack: { height: 6, borderRadius: 999, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.07)' },
+  meterFill: { height: 6, borderRadius: 999, backgroundColor: colors.lime },
   macroRow: { flexDirection: 'row', gap: 12, marginBottom: 26 },
   macro: { flex: 1, height: 74, borderRadius: 22 },
   macroInner: { flex: 1, alignItems: 'center', justifyContent: 'center' },
