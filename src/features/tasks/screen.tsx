@@ -49,8 +49,20 @@ export default function TasksScreen() {
 function Stat({ value, label }: { value: number; label: string }) { return <GlassCard style={styles.stat} contentStyle={styles.statInner}><Text style={styles.statValue}>{value}</Text><Text style={styles.statLabel}>{label}</Text></GlassCard>; }
 function TaskCard({ task, onToggle }: { task: Task; onToggle: () => void }) {
   const time = task.scheduled_at ? new Date(task.scheduled_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : null;
+  const date = task.scheduled_at ? scheduleLabel(task.scheduled_at) : null;
   const sub = task.recurring_rule ? task.recurring_rule.replace('natural:', '') : task.bucket === 'buffer' ? 'backlog' : task.bucket;
-  return <GlassCard onPress={onToggle} style={[styles.card, task.done && styles.cardDone]} contentStyle={styles.cardInner}><View style={[styles.check, task.done && styles.checkDone]}>{task.done ? <Text style={styles.checkMark}>✓</Text> : null}</View><View style={styles.taskTextWrap}><Text style={[styles.taskTitle, task.done && styles.done]}>{task.title}</Text><Text style={styles.meta}>{sub}</Text></View>{time ? <View style={styles.timeChip}><Text style={styles.timeText}>{time}</Text></View> : null}</GlassCard>;
+  return <GlassCard onPress={onToggle} style={[styles.card, task.done && styles.cardDone]} contentStyle={styles.cardInner}><View style={[styles.check, task.done && styles.checkDone]}>{task.done ? <Text style={styles.checkMark}>✓</Text> : null}</View><View style={styles.taskTextWrap}><Text style={[styles.taskTitle, task.done && styles.done]}>{task.title}</Text><View style={styles.metaRow}><Text numberOfLines={1} style={styles.meta}>{sub}</Text>{task.priority >= 3 ? <View style={styles.priorityPill}><Text style={styles.priorityText}>P{task.priority}</Text></View> : null}</View></View>{time ? <View style={styles.timeStack}><View style={styles.timeChip}><Text style={styles.timeText}>{time}</Text></View>{date ? <Text style={styles.dateText}>{date}</Text> : null}</View> : null}</GlassCard>;
+}
+function scheduleLabel(value: string) {
+  const scheduled = new Date(value);
+  const today = new Date();
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const target = new Date(scheduled.getFullYear(), scheduled.getMonth(), scheduled.getDate()).getTime();
+  const diff = Math.round((target - start) / 86400000);
+  if (diff === 0) return 'today';
+  if (diff === 1) return 'tomorrow';
+  if (diff === -1) return 'yesterday';
+  return scheduled.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }).toLowerCase();
 }
 const styles = StyleSheet.create({
   root: { flex: 1 },
@@ -101,12 +113,17 @@ const styles = StyleSheet.create({
   check: { width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.18)', marginRight: 13, alignItems: 'center', justifyContent: 'center' },
   checkDone: { backgroundColor: colors.blue, borderColor: colors.blue },
   checkMark: { color: '#fff', fontFamily: fonts.bodySemibold, fontSize: 13 },
-  taskTextWrap: { flex: 1 },
+  taskTextWrap: { flex: 1, paddingRight: 8 },
   taskTitle: { color: colors.ink, fontSize: 15, lineHeight: 20, fontFamily: fonts.bodySemibold },
   done: { color: colors.muted, textDecorationLine: 'line-through' },
-  meta: { color: colors.muted, marginTop: 5, fontFamily: fonts.bodyMedium, fontSize: 12 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
+  meta: { color: colors.muted, fontFamily: fonts.bodyMedium, fontSize: 12, flexShrink: 1 },
+  priorityPill: { borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2, backgroundColor: 'rgba(201,255,74,0.10)', borderWidth: 1, borderColor: 'rgba(201,255,74,0.18)' },
+  priorityText: { color: colors.lime, fontFamily: fonts.bodySemibold, fontSize: 10, letterSpacing: 0.8 },
+  timeStack: { alignItems: 'flex-end', gap: 5 },
   timeChip: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: 'rgba(99,167,255,0.12)', borderWidth: 1, borderColor: 'rgba(99,167,255,0.20)' },
   timeText: { color: '#a8ccff', fontFamily: fonts.bodySemibold, fontSize: 12 },
+  dateText: { color: colors.muted, fontFamily: fonts.bodySemibold, fontSize: 10, letterSpacing: 0.8, textTransform: 'uppercase' },
   fab: { position: 'absolute', right: 22, bottom: 82, width: 54, height: 54, borderRadius: 27, backgroundColor: colors.blue, alignItems: 'center', justifyContent: 'center', shadowColor: colors.blue, shadowOpacity: 0.24, shadowRadius: 12, elevation: 8 },
   fabText: { color: '#fff', fontFamily: fonts.displayMedium, fontSize: 32, lineHeight: 34 },
 });

@@ -42,7 +42,7 @@ export default function CaloriesScreen() {
     <GlassCard style={styles.inputBar} contentStyle={styles.inputBarInner}><TextInput value={message} onChangeText={setMessage} placeholder={'Say or type — "two eggs and toast"'} placeholderTextColor="#6b707b" style={styles.input} onSubmitEditing={() => addNatural('typed')} /><Pressable onPress={() => addNatural('voice')} style={styles.micButton}><MicGlyph size={23} /></Pressable></GlassCard>
     <View style={styles.quickFoodRow}>{quickFoods.map(food => <Pressable key={food} onPress={() => setMessage(food)} style={styles.quickFood}><Text style={styles.quickFoodText}>{food}</Text></Pressable>)}</View>
     <View style={styles.sectionRow}><Text style={styles.section}>TODAY</Text><Text style={styles.entries}>{items.length} entries</Text></View>
-    {items.length === 0 ? <Text style={styles.empty}>No food logged yet.</Text> : items.map(entry => <GlassCard key={entry.id} onLongPress={() => remove(entry.id)} style={styles.foodCard} contentStyle={styles.foodCardInner}><View style={styles.foodMiddle}><Text style={styles.foodTitle}>{entry.item}</Text><Text style={styles.foodSub}>{entry.nutrition?.serving || entry.source}</Text></View><Text style={styles.foodCal}>{entry.calories}</Text></GlassCard>)}
+    {items.length === 0 ? <Text style={styles.empty}>No food logged yet.</Text> : items.map(entry => <GlassCard key={entry.id} onLongPress={() => remove(entry.id)} style={styles.foodCard} contentStyle={styles.foodCardInner}><View style={styles.foodMiddle}><Text style={styles.foodTitle}>{entry.item}</Text><Text style={styles.foodSub}>{entry.nutrition?.serving || entry.source}</Text>{entry.nutrition ? <View style={styles.foodMacros}><FoodMacro label="P" value={entry.nutrition.protein_g} /><FoodMacro label="C" value={entry.nutrition.carbs_g} /><FoodMacro label="F" value={entry.nutrition.fat_g} /></View> : null}</View><View style={styles.foodCalWrap}><Text style={styles.foodCal}>{entry.calories}</Text><Text style={styles.foodCalLabel}>kcal</Text></View></GlassCard>)}
   </ScrollView>;
 }
 function CalorieRing({ total }: { total: number }) {
@@ -68,6 +68,7 @@ function CalorieRing({ total }: { total: number }) {
   </View>;
 }
 function Macro({ value, label, color }: { value: number; label: string; color: string }) { return <GlassCard style={styles.macro} contentStyle={styles.macroInner}><Text style={[styles.macroValue, { color }]}>{value}g</Text><Text style={styles.macroLabel}>{label}</Text></GlassCard>; }
+function FoodMacro({ label, value }: { label: string; value?: number }) { return <View style={styles.foodMacroPill}><Text style={styles.foodMacroLabel}>{label}</Text><Text style={styles.foodMacroValue}>{Math.round(value || 0)}g</Text></View>; }
 const styles = StyleSheet.create({
   wrap: { paddingBottom: 22 },
   topLine: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
@@ -114,10 +115,16 @@ const styles = StyleSheet.create({
   section: { color: colors.lime, fontSize: 12, letterSpacing: 3.6, fontFamily: fonts.bodySemibold },
   entries: { color: colors.muted, fontFamily: fonts.bodyMedium, fontSize: 13 },
   empty: { color: colors.muted, fontFamily: fonts.bodyMedium, paddingVertical: 14, fontSize: 15 },
-  foodCard: { minHeight: 68, borderRadius: 22, marginBottom: 10 },
-  foodCardInner: { flex: 1, flexDirection: 'row', alignItems: 'center', padding: 14 },
+  foodCard: { minHeight: 82, borderRadius: 22, marginBottom: 10 },
+  foodCardInner: { flex: 1, flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
   foodMiddle: { flex: 1 },
   foodTitle: { color: colors.ink, fontFamily: fonts.bodySemibold, fontSize: 15 },
   foodSub: { color: colors.muted, fontFamily: fonts.bodyMedium, fontSize: 12, marginTop: 4 },
-  foodCal: { color: colors.lime, fontFamily: fonts.displaySemibold, fontSize: 15 },
+  foodMacros: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
+  foodMacroPill: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: 'rgba(255,255,255,0.045)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
+  foodMacroLabel: { color: '#8d929d', fontFamily: fonts.bodySemibold, fontSize: 10 },
+  foodMacroValue: { color: colors.soft, fontFamily: fonts.bodySemibold, fontSize: 11 },
+  foodCalWrap: { minWidth: 52, alignItems: 'flex-end' },
+  foodCal: { color: colors.lime, fontFamily: fonts.displaySemibold, fontSize: 20, letterSpacing: -0.4 },
+  foodCalLabel: { color: colors.muted, fontFamily: fonts.bodySemibold, fontSize: 10, letterSpacing: 1.4, marginTop: 2 },
 });
