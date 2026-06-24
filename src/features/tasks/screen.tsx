@@ -1,9 +1,11 @@
-import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withTiming } from 'react-native-reanimated';
 import { useAsync } from '../../core/useAsync';
 import { State } from '../../core/ui/atoms';
-import { VoiceOrb } from '../../core/ui/VoiceOrb';
 import { GlassCard } from '../../core/ui/GlassCard';
+import { MicGlyph } from '../../core/ui/MicGlyph';
 import { colors } from '../../core/theme';
 import { fonts } from '../../core/fonts';
 import { assistantApi } from '../assistant/api';
@@ -16,30 +18,72 @@ const buckets: { key: Bucket; title: string }[] = [
   { key: 'recurring', title: 'Recurring' },
 ];
 
+type VoicePhase = 'idle' | 'recording' | 'transcribing';
+
 export default function TasksScreen() {
   const { data, loading, error, load, setData } = useAsync(useCallback(() => tasksApi.list(), []));
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [inputOpen, setInputOpen] = useState(false);
 
+  // Voice state
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorderState = useAudioRecorderState(recorder);
+  const [voicePhase, setVoicePhase] = useState<VoicePhase>('idle');
+  const [recordingUri, setRecordingUri] = useState<string | null>(null);
+  const [permsGranted, setPermsGranted] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const status = await AudioModule.requestRecordingPermissionsAsync();
+      if (status.granted) { setPermsGranted(true); await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true }); }
+    })();
+  }, []);
+
+  async function handleMicPress() {
+    if (voicePhase === 'recording') {
+      const uri = await recorder.stop();
+      setVoicePhase('transcribing');
+      setRecordingUri(uri);
+      return;
+    }
+    if (voicePhase === 'idle' && !busy) {
+      if (!permsGranted) {
+        const status = await AudioModule.requestRecordingPermissionsAsync();
+        if (!status.granted) { Alert.alert('Mic denied', 'Allow microphone access.'); return; }
+        setPermsGranted(true);
+        await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      }
+      try { await recorder.prepareToRecordAsync(); recorder.record(); setVoicePhase('recording'); }
+      catch { Alert.alert('Mic error', 'Could not start recording.'); }
+    }
+  }
+
+  useEffect(() => {
+    if (recordingUri && voicePhase === 'transcribing') {
+      (async () => {
+        try {
+          const text = await assistantApi.transcribe(recordingUri);
+          if (text.trim()) await addNatural(text, 'voice');
+        } catch { Alert.alert('Transcribe failed', 'Could not transcribe audio.'); }
+        finally { setVoicePhase('idle'); setRecordingUri(null); }
+      })();
+    }
+  }, [recordingUri, voicePhase]);
+
   async function addNatural(text?: string, source: 'typed' | 'voice' = 'typed') {
     const clean = (text || message).trim(); if (!clean || busy) return;
     setBusy(true);
     try {
       const result = await tasksApi.natural(clean, source);
-      // Get AI title for voice entries
       if (source === 'voice') {
-        const title = await assistantApi.title(clean).catch(() => clean);
+        const title = await assistantApi.title(clean).catch(() => result.task.title);
         setData(prev => [{ ...result.task, title: title || result.task.title }, ...(prev || [])]);
       } else {
         setData(prev => [result.task, ...(prev || [])]);
       }
       setMessage(''); setInputOpen(false);
     } finally { setBusy(false); }
-  }
-
-  function onVoiceTranscript(text: string) {
-    addNatural(text, 'voice');
   }
 
   async function complete(task: Task) {
@@ -69,9 +113,6 @@ export default function TasksScreen() {
           <Text style={styles.kicker}>TODAY</Text>
           <Text style={styles.title}>Tasks</Text>
         </View>
-        <Pressable accessibilityRole="button" onPress={() => setInputOpen(!inputOpen)} style={styles.addBtn}>
-          <Text style={styles.addBtnText}>{inputOpen ? '×' : '+'}</Text>
-        </Pressable>
       </View>
 
       {/* Open count */}
@@ -79,18 +120,20 @@ export default function TasksScreen() {
         {tasks.length > 0 ? `${tasks.length} open` : 'All clear'}
       </Text>
 
-      {/* Inline add input */}
+      {/* Inline text add input */}
       {inputOpen ? <GlassCard style={styles.inputCard} contentStyle={styles.inputCardInner}>
         <TextInput value={message} onChangeText={setMessage} placeholder="Add a task — natural language…" placeholderTextColor="#555b66" style={styles.input} onSubmitEditing={() => addNatural()} autoFocus />
-        {message.trim() ? (
-          <Pressable disabled={busy} onPress={() => addNatural()} style={styles.inputSend}>
-            {busy ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.inputSendText}>+</Text>}
-          </Pressable>
-        ) : (
-          <VoiceOrb onTranscript={onVoiceTranscript} accent={colors.blue} size={44} />
-        )}
+        <Pressable disabled={busy} onPress={() => addNatural()} style={styles.inputSend}>
+          {busy ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.inputSendText}>+</Text>}
+        </Pressable>
+        <Pressable onPress={() => { setInputOpen(false); setMessage(''); }} style={styles.collapseBtn}>
+          <Text style={styles.collapseText}>×</Text>
+        </Pressable>
       </GlassCard> : null}
-      {busy && inputOpen && !message.trim() ? <Text style={styles.parsing}>Listening & parsing…</Text> : null}
+
+      {/* Voice status */}
+      {voicePhase === 'recording' ? <Text style={styles.voiceStatus}>Listening… {Math.round(recorderState.durationMillis / 1000)}s</Text> : null}
+      {voicePhase === 'transcribing' ? <Text style={styles.voiceStatus}>Transcribing…</Text> : null}
 
       {/* Buckets */}
       {buckets.map(bucket => {
@@ -106,7 +149,29 @@ export default function TasksScreen() {
         </View>;
       })}
     </ScrollView>
+
+    {/* Floating mic (left) + plus (right) above bottom rail */}
+    <View style={styles.floatingBar}>
+      <Pressable onPress={handleMicPress} disabled={voicePhase === 'transcribing' || busy} style={[styles.floatMic, voicePhase === 'recording' && styles.floatMicActive]}>
+        {voicePhase === 'recording' ? <FloatWave /> : voicePhase === 'transcribing' ? <ActivityIndicator size="small" color="#fff" /> : <MicGlyph size={24} color="#fff" />}
+      </Pressable>
+      <Pressable onPress={() => setInputOpen(!inputOpen)} style={styles.floatPlus}>
+        <Text style={styles.floatPlusText}>{inputOpen ? '×' : '+'}</Text>
+      </Pressable>
+    </View>
   </View>;
+}
+
+function FloatWave() {
+  return <View style={styles.floatWave}>{[0, 1, 2].map(i => <FloatBar key={i} index={i} />)}</View>;
+}
+function FloatBar({ index }: { index: number }) {
+  const v = useSharedValue(0.3);
+  useEffect(() => {
+    v.value = withDelay(index * 70, withRepeat(withTiming(1, { duration: 260 + (index % 2) * 100, easing: Easing.inOut(Easing.quad) }), -1, true));
+  }, [v, index]);
+  const style = useAnimatedStyle(() => ({ height: 4 + v.value * 14 }));
+  return <Animated.View style={[styles.floatBar, style]} />;
 }
 
 function TaskCard({ task, onToggle, onDelete }: { task: Task; onToggle: () => void; onDelete: () => void }) {
@@ -132,19 +197,19 @@ function TaskCard({ task, onToggle, onDelete }: { task: Task; onToggle: () => vo
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  wrap: { paddingBottom: 28 },
+  wrap: { paddingBottom: 110 },
   header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginTop: 4 },
   kicker: { color: '#6c717c', fontSize: 10, letterSpacing: 3.8, fontFamily: fonts.bodySemibold },
   title: { color: colors.ink, fontSize: 34, fontFamily: fonts.displaySemibold, letterSpacing: -1.0, marginTop: 6 },
-  addBtn: { width: 42, height: 42, borderRadius: 18, backgroundColor: colors.blue, alignItems: 'center', justifyContent: 'center', shadowColor: colors.blue, shadowOpacity: 0.25, shadowRadius: 12, elevation: 6 },
-  addBtnText: { color: '#fff', fontFamily: fonts.displayMedium, fontSize: 24, lineHeight: 26 },
   openCount: { color: colors.soft, fontFamily: fonts.bodyMedium, fontSize: 14, marginTop: 12, marginBottom: 20 },
   inputCard: { height: 54, borderRadius: 18, marginBottom: 8 },
   inputCardInner: { flexDirection: 'row', alignItems: 'center', paddingLeft: 16, paddingRight: 6 },
   input: { flex: 1, color: colors.ink, fontFamily: fonts.bodyMedium, fontSize: 14, minHeight: 44 },
   inputSend: { width: 44, height: 44, borderRadius: 16, backgroundColor: colors.blue, alignItems: 'center', justifyContent: 'center' },
   inputSendText: { color: '#fff', fontFamily: fonts.displayMedium, fontSize: 22, lineHeight: 24 },
-  parsing: { color: colors.muted, fontSize: 12, fontFamily: fonts.bodyMedium, textAlign: 'center', marginBottom: 16 },
+  collapseBtn: { width: 36, height: 44, alignItems: 'center', justifyContent: 'center' },
+  collapseText: { color: colors.muted, fontFamily: fonts.displayMedium, fontSize: 26, lineHeight: 28 },
+  voiceStatus: { color: colors.blue, fontSize: 12, fontFamily: fonts.bodyMedium, textAlign: 'center', marginBottom: 12 },
   bucket: { marginBottom: 24 },
   bucketHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   bucketTitle: { color: colors.soft, fontSize: 13, fontFamily: fonts.bodySemibold, letterSpacing: 0.3 },
@@ -164,4 +229,12 @@ const styles = StyleSheet.create({
   priorityText: { color: colors.lime, fontFamily: fonts.bodySemibold, fontSize: 9, letterSpacing: 0.3 },
   deleteBtn: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.04)' },
   deleteText: { color: '#ff9f9f', fontFamily: fonts.displayMedium, fontSize: 18, lineHeight: 20 },
+  // Floating action bar
+  floatingBar: { position: 'absolute', left: 24, right: 24, bottom: 76, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  floatMic: { width: 50, height: 50, borderRadius: 25, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', shadowColor: colors.primary, shadowOpacity: 0.35, shadowRadius: 14, elevation: 8 },
+  floatMicActive: { backgroundColor: colors.lime, shadowColor: colors.lime },
+  floatWave: { flexDirection: 'row', alignItems: 'center', height: 20, gap: 3 },
+  floatBar: { width: 3, borderRadius: 2, backgroundColor: 'rgba(5,8,12,0.85)' },
+  floatPlus: { width: 50, height: 50, borderRadius: 25, backgroundColor: colors.blue, alignItems: 'center', justifyContent: 'center', shadowColor: colors.blue, shadowOpacity: 0.35, shadowRadius: 14, elevation: 8 },
+  floatPlusText: { color: '#fff', fontFamily: fonts.displayMedium, fontSize: 26, lineHeight: 28 },
 });

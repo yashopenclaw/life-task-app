@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
-import Animated, { Easing, runOnJS, useAnimatedProps, useAnimatedReaction, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, runOnJS, useAnimatedProps, useAnimatedReaction, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withTiming } from 'react-native-reanimated';
+import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 import { useAsync } from '../../core/useAsync';
 import { State } from '../../core/ui/atoms';
-import { VoiceOrb } from '../../core/ui/VoiceOrb';
 import { GlassCard } from '../../core/ui/GlassCard';
 import { colors } from '../../core/theme';
 import { fonts } from '../../core/fonts';
@@ -15,6 +15,8 @@ import { caloriesApi } from './api';
 
 const DEFAULT_DAILY_GOAL = 2200;
 
+type VoicePhase = 'idle' | 'recording' | 'transcribing';
+
 export default function CaloriesScreen() {
   const { width } = useWindowDimensions();
   const narrowPhone = width < 390;
@@ -22,11 +24,56 @@ export default function CaloriesScreen() {
   const settingsState = useAsync(useCallback(() => caloriesApi.settings(), []));
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
-  const [voiceText, setVoiceText] = useState('');
   const dailyGoal = settingsState.data?.daily_goal || DEFAULT_DAILY_GOAL;
   const [goalEditOpen, setGoalEditOpen] = useState(false);
   const [goalDraft, setGoalDraft] = useState(String(dailyGoal));
   useEffect(() => { setGoalDraft(String(dailyGoal)); }, [dailyGoal]);
+
+  // Voice state
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorderState = useAudioRecorderState(recorder);
+  const [voicePhase, setVoicePhase] = useState<VoicePhase>('idle');
+  const [recordingUri, setRecordingUri] = useState<string | null>(null);
+  const [permsGranted, setPermsGranted] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const status = await AudioModule.requestRecordingPermissionsAsync();
+      if (status.granted) { setPermsGranted(true); await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true }); }
+    })();
+  }, []);
+
+  async function handleRingPress() {
+    if (voicePhase === 'recording') {
+      const uri = await recorder.stop();
+      setVoicePhase('transcribing');
+      setRecordingUri(uri);
+      return;
+    }
+    if (voicePhase === 'idle' && !busy) {
+      if (!permsGranted) {
+        const status = await AudioModule.requestRecordingPermissionsAsync();
+        if (!status.granted) { Alert.alert('Mic denied', 'Allow microphone access.'); return; }
+        setPermsGranted(true);
+        await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      }
+      try { await recorder.prepareToRecordAsync(); recorder.record(); setVoicePhase('recording'); }
+      catch { Alert.alert('Mic error', 'Could not start recording.'); }
+    }
+  }
+
+  // Transcribe when URI is set
+  useEffect(() => {
+    if (recordingUri && voicePhase === 'transcribing') {
+      (async () => {
+        try {
+          const text = await assistantApi.transcribe(recordingUri);
+          if (text.trim()) await submitEntry(text, 'voice');
+        } catch { Alert.alert('Transcribe failed', 'Could not transcribe audio.'); }
+        finally { setVoicePhase('idle'); setRecordingUri(null); }
+      })();
+    }
+  }, [recordingUri, voicePhase]);
 
   async function saveGoal() {
     const next = Math.max(1, Math.min(20000, Number.parseInt(goalDraft.replace(/[^0-9]/g, ''), 10) || DEFAULT_DAILY_GOAL));
@@ -40,24 +87,13 @@ export default function CaloriesScreen() {
     setBusy(true);
     try {
       const result = await caloriesApi.natural(clean, source);
-      // For voice entries, get a clean AI-generated title
       let itemTitle = result.entry.item;
       if (source === 'voice') {
         itemTitle = await assistantApi.title(clean).catch(() => result.entry.item);
       }
       setData(prev => [{ ...result.entry, item: itemTitle }, ...(prev || [])]);
       setMessage('');
-      setVoiceText('');
     } finally { setBusy(false); }
-  }
-
-  async function addNatural() {
-    await submitEntry(message, 'typed');
-  }
-
-  function onVoiceTranscript(text: string) {
-    setVoiceText(text);
-    submitEntry(text, 'voice');
   }
 
   async function remove(id: string) {
@@ -81,9 +117,9 @@ export default function CaloriesScreen() {
       <Text style={styles.title}>Calories</Text>
     </View>
 
-    {/* Ring — no loading state on it */}
+    {/* Ring — tap to voice record. Shows mic/waves while recording, spinner while transcribing */}
     <View style={styles.ringHero}>
-      <CalorieRing total={total} goal={dailyGoal} remaining={remaining} percent={percent} />
+      <CalorieRing total={total} goal={dailyGoal} remaining={remaining} voicePhase={voicePhase} recordingDuration={recorderState.durationMillis} onPress={handleRingPress} />
     </View>
 
     {/* Goal line */}
@@ -103,26 +139,21 @@ export default function CaloriesScreen() {
       <Macro value={Math.round(macros.fat)} label="Fat" color="#e4d561" />
     </View>
 
-    {/* Input bar — text input + voice orb */}
+    {/* Text input — text only, submit arrow */}
     <GlassCard style={styles.inputBar} contentStyle={styles.inputBarInner}>
       <TextInput
         value={message}
         onChangeText={setMessage}
-        placeholder={voiceText ? `"${voiceText.slice(0, 30)}…"` : 'Log food — "two eggs and toast"'}
-        placeholderTextColor={voiceText ? colors.lime : '#555b66'}
+        placeholder='Log food — "two eggs and toast"'
+        placeholderTextColor="#555b66"
         style={styles.input}
-        onSubmitEditing={addNatural}
+        onSubmitEditing={() => submitEntry(message, 'typed')}
         editable={!busy}
       />
-      {message.trim() ? (
-        <Pressable onPress={addNatural} disabled={busy} style={[styles.submitButton, busy && styles.submitButtonDisabled]}>
-          {busy ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.submitArrow}>↑</Text>}
-        </Pressable>
-      ) : (
-        <VoiceOrb onTranscript={onVoiceTranscript} accent={colors.primary} size={44} />
-      )}
+      <Pressable onPress={() => submitEntry(message, 'typed')} disabled={busy || !message.trim()} style={[styles.submitButton, (busy || !message.trim()) && styles.submitButtonDisabled]}>
+        {busy ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.submitArrow}>↑</Text>}
+      </Pressable>
     </GlassCard>
-    {busy && voiceText ? <Text style={styles.parsing}>Parsing "{voiceText.slice(0, 40)}"…</Text> : null}
 
     {/* Today's entries */}
     <Text style={styles.sectionLabel}>Today · {items.length}</Text>
@@ -149,7 +180,10 @@ export default function CaloriesScreen() {
   </ScrollView>;
 }
 
-function CalorieRing({ total, goal, remaining, percent }: { total: number; goal: number; remaining: number; percent: number }) {
+function CalorieRing({ total, goal, remaining, voicePhase, recordingDuration, onPress }: {
+  total: number; goal: number; remaining: number;
+  voicePhase: VoicePhase; recordingDuration: number; onPress: () => void;
+}) {
   const circumference = 439.8;
   const targetFraction = Math.max(0, Math.min(1, total / goal));
   const anim = useSharedValue(0);
@@ -161,18 +195,57 @@ function CalorieRing({ total, goal, remaining, percent }: { total: number; goal:
   useAnimatedReaction(() => anim.value, v => { runOnJS(setShownTotal)(Math.round(total * v)); }, [total]);
   const animatedProps = useAnimatedProps(() => ({ strokeDashoffset: circumference * (1 - targetFraction * anim.value) }));
   const over = remaining < 0;
-  return <View style={styles.ringOuter}>
-    <Svg width={180} height={180} viewBox="0 0 168 168" style={styles.ringSvg}>
-      <Defs><LinearGradient id="calorieArc" x1="20" y1="20" x2="148" y2="148"><Stop offset="0" stopColor={over ? colors.danger : '#f3be65'} /><Stop offset="1" stopColor={over ? '#ff8a8a' : colors.lime} /></LinearGradient></Defs>
-      <Circle cx="84" cy="84" r="70" stroke="rgba(255,255,255,0.06)" strokeWidth="10" fill="transparent" />
-      <AnimatedCircle cx="84" cy="84" r="70" stroke="url(#calorieArc)" strokeWidth="10" fill="transparent" strokeLinecap="round" strokeDasharray={`${circumference} ${circumference}`} animatedProps={animatedProps} rotation="-90" origin="84,84" />
-    </Svg>
-    <View style={styles.ringInner}>
-      <Text style={styles.ringTotal}>{shownTotal.toLocaleString('en-IN')}</Text>
-      <Text style={styles.ringUnit}>of {goal.toLocaleString('en-IN')}</Text>
-      <Text style={[styles.ringRemaining, over && styles.ringOver]}>{over ? `${Math.abs(remaining).toLocaleString('en-IN')} over` : `${remaining.toLocaleString('en-IN')} left`}</Text>
-    </View>
-  </View>;
+  const isRecording = voicePhase === 'recording';
+  const isTranscribing = voicePhase === 'transcribing';
+
+  // Pulse animation for recording state
+  const pulse = useSharedValue(0);
+  useEffect(() => {
+    if (isRecording) pulse.value = withRepeat(withTiming(1, { duration: 900, easing: Easing.inOut(Easing.sin) }), -1, true);
+    else pulse.value = 0;
+  }, [isRecording]);
+  const pulseStyle = useAnimatedStyle(() => ({ transform: [{ scale: 1 + pulse.value * 0.06 }] }));
+
+  return <Pressable onPress={onPress} style={styles.ringPressable}>
+    <Animated.View style={[styles.ringOuter, pulseStyle]}>
+      <Svg width={180} height={180} viewBox="0 0 168 168" style={styles.ringSvg}>
+        <Defs>
+          <LinearGradient id="calorieArc" x1="20" y1="20" x2="148" y2="148">
+            <Stop offset="0" stopColor={isRecording ? colors.lime : over ? colors.danger : '#f3be65'} />
+            <Stop offset="1" stopColor={isRecording ? '#a8ff00' : over ? '#ff8a8a' : colors.lime} />
+          </LinearGradient>
+        </Defs>
+        <Circle cx="84" cy="84" r="70" stroke="rgba(255,255,255,0.06)" strokeWidth="10" fill="transparent" />
+        <AnimatedCircle cx="84" cy="84" r="70" stroke="url(#calorieArc)" strokeWidth="10" fill="transparent" strokeLinecap="round" strokeDasharray={`${circumference} ${circumference}`} animatedProps={animatedProps} rotation="-90" origin="84,84" />
+      </Svg>
+      <View style={styles.ringInner}>
+        {isRecording ? <>
+          <WaveBars />
+          <Text style={styles.ringListening}>{Math.round(recordingDuration / 1000)}s</Text>
+        </> : isTranscribing ? <>
+          <ActivityIndicator size="large" color={colors.lime} />
+          <Text style={styles.ringListening}>Parsing…</Text>
+        </> : <>
+          <Text style={styles.ringTotal}>{shownTotal.toLocaleString('en-IN')}</Text>
+          <Text style={styles.ringUnit}>of {goal.toLocaleString('en-IN')}</Text>
+          <Text style={[styles.ringRemaining, over && styles.ringOver]}>{over ? `${Math.abs(remaining).toLocaleString('en-IN')} over` : `${remaining.toLocaleString('en-IN')} left`}</Text>
+          <Text style={styles.ringHint}>tap to speak</Text>
+        </>}
+      </View>
+    </Animated.View>
+  </Pressable>;
+}
+
+function WaveBars() {
+  return <View style={styles.waveBars}>{[0, 1, 2, 3, 4].map(i => <WaveBar key={i} index={i} />)}</View>;
+}
+function WaveBar({ index }: { index: number }) {
+  const v = useSharedValue(0.3);
+  useEffect(() => {
+    v.value = withDelay(index * 60, withRepeat(withTiming(1, { duration: 250 + (index % 3) * 100, easing: Easing.inOut(Easing.quad) }), -1, true));
+  }, [v, index]);
+  const style = useAnimatedStyle(() => ({ height: 6 + v.value * 22 }));
+  return <Animated.View style={[styles.waveBar, style]} />;
 }
 
 function Macro({ value, label, color }: { value: number; label: string; color: string }) {
@@ -191,6 +264,7 @@ const styles = StyleSheet.create({
   kicker: { color: '#6c717c', fontSize: 10, letterSpacing: 3.8, fontFamily: fonts.bodySemibold },
   title: { color: colors.ink, fontSize: 34, fontFamily: fonts.displaySemibold, letterSpacing: -1.0, marginTop: 6 },
   ringHero: { alignItems: 'center', marginTop: 28, marginBottom: 16 },
+  ringPressable: { alignItems: 'center', justifyContent: 'center' },
   ringOuter: { width: 180, height: 180, alignItems: 'center', justifyContent: 'center', shadowColor: colors.lime, shadowOpacity: 0.18, shadowRadius: 24, elevation: 6 },
   ringSvg: { position: 'absolute' },
   ringInner: { width: 130, height: 130, borderRadius: 65, alignItems: 'center', justifyContent: 'center' },
@@ -198,6 +272,10 @@ const styles = StyleSheet.create({
   ringUnit: { color: colors.muted, fontSize: 12, fontFamily: fonts.bodyMedium, marginTop: 2 },
   ringRemaining: { color: colors.lime, fontSize: 13, fontFamily: fonts.bodySemibold, marginTop: 8, letterSpacing: 0.3 },
   ringOver: { color: colors.danger },
+  ringHint: { color: colors.faint, fontSize: 10, fontFamily: fonts.bodyMedium, marginTop: 6 },
+  ringListening: { color: colors.lime, fontSize: 13, fontFamily: fonts.bodySemibold, marginTop: 8 },
+  waveBars: { flexDirection: 'row', alignItems: 'center', height: 30, gap: 4 },
+  waveBar: { width: 4, borderRadius: 2, backgroundColor: colors.lime },
   goalLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 8 },
   goalLineText: { color: colors.muted, fontSize: 13, fontFamily: fonts.bodyMedium },
   goalLineEdit: { color: colors.primary, fontSize: 12, fontFamily: fonts.bodySemibold },
@@ -211,13 +289,12 @@ const styles = StyleSheet.create({
   macroValue: { fontFamily: fonts.displaySemibold, fontSize: 20, letterSpacing: -0.3 },
   macroUnit: { fontSize: 13, fontFamily: fonts.bodyMedium, color: colors.muted },
   macroLabel: { color: colors.muted, fontSize: 11, fontFamily: fonts.bodyMedium, marginTop: 5, letterSpacing: 0.3 },
-  inputBar: { height: 54, borderRadius: 20, marginBottom: 8 },
+  inputBar: { height: 54, borderRadius: 20, marginBottom: 24 },
   inputBarInner: { flexDirection: 'row', alignItems: 'center', paddingLeft: 16, paddingRight: 6 },
   input: { flex: 1, color: colors.ink, fontFamily: fonts.bodyMedium, fontSize: 14 },
   submitButton: { width: 44, height: 44, borderRadius: 16, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  submitButtonDisabled: { opacity: 0.5 },
+  submitButtonDisabled: { opacity: 0.4 },
   submitArrow: { color: '#fff', fontFamily: fonts.bodySemibold, fontSize: 22, lineHeight: 24 },
-  parsing: { color: colors.muted, fontSize: 12, fontFamily: fonts.bodyMedium, textAlign: 'center', marginBottom: 16 },
   sectionLabel: { color: colors.muted, fontSize: 12, fontFamily: fonts.bodySemibold, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 14 },
   empty: { color: colors.muted, fontFamily: fonts.bodyMedium, fontSize: 14, paddingVertical: 10 },
   foodCard: { minHeight: 72, borderRadius: 20, marginBottom: 8 },

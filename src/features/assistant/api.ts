@@ -69,4 +69,6 @@ export const assistantApi = {
     return data.text || '';
   },
   title: (message: string) => request<{ text: string }>('/assistant/title', { method: 'POST', body: JSON.stringify({ message, source: 'typed' }) }).then(r => r.text),
+  models: () => request<{ current: string; models: { id: string; label: string; provider: string }[] }>('/assistant/models'),
+  switchModel: (model: string, provider: string) => request<{ current: string; models: { id: string; label: string; provider: string }[] }>('/assistant/models', { method: 'POST', body: JSON.stringify({ model, provider }) }),
 };
