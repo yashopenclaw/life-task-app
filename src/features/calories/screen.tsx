@@ -12,15 +12,26 @@ import { colors } from '../../core/theme';
 import { fonts } from '../../core/fonts';
 import { caloriesApi } from './api';
 
-const DAILY_GOAL = 2200;
+const DEFAULT_DAILY_GOAL = 2200;
 const quickFoods = ['2 eggs + toast', 'protein shake', 'dal rice bowl'];
 
 export default function CaloriesScreen() {
   const { width } = useWindowDimensions();
   const narrowPhone = width < 390;
   const { data, loading, error, load } = useAsync(useCallback(() => caloriesApi.list(), []));
+  const settingsState = useAsync(useCallback(() => caloriesApi.settings(), []));
   const [busy, setBusy] = useState(false);
+  const [goalBusy, setGoalBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const dailyGoal = settingsState.data?.daily_goal || DEFAULT_DAILY_GOAL;
+  const [goalDraft, setGoalDraft] = useState(String(dailyGoal));
+  useEffect(() => { setGoalDraft(String(dailyGoal)); }, [dailyGoal]);
+  async function saveGoal() {
+    const next = Math.max(1, Math.min(20000, Number.parseInt(goalDraft.replace(/[^0-9]/g, ''), 10) || DEFAULT_DAILY_GOAL));
+    setGoalBusy(true);
+    try { await caloriesApi.updateSettings({ daily_goal: next }); await settingsState.load(); }
+    finally { setGoalBusy(false); }
+  }
   async function addNatural(source: 'typed' | 'voice' = 'typed') {
     const clean = message.trim(); if (!clean || busy) return;
     setBusy(true); try { await caloriesApi.natural(clean, source); setMessage(''); await load(); } finally { setBusy(false); }
@@ -29,15 +40,16 @@ export default function CaloriesScreen() {
   const today = new Date().toISOString().slice(0, 10);
   const items = (data || []).filter(entry => entry.date === today);
   const total = items.reduce((sum, entry) => sum + entry.calories, 0);
-  const remaining = DAILY_GOAL - total;
-  const percent = Math.min(999, Math.round((total / DAILY_GOAL) * 100));
+  const remaining = dailyGoal - total;
+  const percent = Math.min(999, Math.round((total / dailyGoal) * 100));
   const macros = useMemo(() => items.reduce((acc, entry) => { acc.protein += entry.nutrition?.protein_g || 0; acc.carbs += entry.nutrition?.carbs_g || 0; acc.fat += entry.nutrition?.fat_g || 0; return acc; }, { protein: 0, carbs: 0, fat: 0 }), [items]);
-  if (loading) return <State loading />; if (error) return <State error={error} retry={load} />;
+  if (loading || settingsState.loading) return <State loading />; if (error || settingsState.error) return <State error={error || settingsState.error} retry={() => { load(); settingsState.load(); }} />;
 
   return <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.wrap}>
     <View style={styles.topLine}><View><Text style={styles.kicker}>TODAY · NUTRITION</Text><Text style={styles.title}>Calories</Text></View></View>
-    <GlassCard style={[styles.heroCard, narrowPhone && styles.heroCardNarrow]} contentStyle={[styles.heroInner, narrowPhone && styles.heroInnerNarrow]}><View style={[styles.ringWrap, narrowPhone && styles.ringWrapNarrow]}><CalorieRing total={total} /></View><View style={[styles.heroCopy, narrowPhone && styles.heroCopyNarrow]}><Text style={styles.heroLabel}>{remaining >= 0 ? 'ROOM LEFT' : 'OVER GOAL'}</Text><Text style={styles.heroValue}>{Math.abs(remaining).toLocaleString('en-IN')}</Text><Text style={styles.heroSub}>kcal {remaining >= 0 ? 'available today' : 'above target today'}</Text></View></GlassCard>
-    <GlassCard style={styles.summaryCard} contentStyle={styles.summaryInner}><View style={styles.summaryTop}><View><Text style={styles.summaryLabel}>DAILY PACE</Text><Text style={styles.summaryCopy}>{total > DAILY_GOAL ? 'Goal crossed. Keep dinner light.' : `${remaining.toLocaleString('en-IN')} kcal left for today.`}</Text></View><Text style={styles.summaryValue}>{percent}%</Text></View><View style={styles.meterTrack}><View style={[styles.meterFill, { width: `${Math.min(100, percent)}%` }]} /></View></GlassCard>
+    <GlassCard style={[styles.heroCard, narrowPhone && styles.heroCardNarrow]} contentStyle={[styles.heroInner, narrowPhone && styles.heroInnerNarrow]}><View style={[styles.ringWrap, narrowPhone && styles.ringWrapNarrow]}><CalorieRing total={total} goal={dailyGoal} /></View><View style={[styles.heroCopy, narrowPhone && styles.heroCopyNarrow]}><Text style={styles.heroLabel}>{remaining >= 0 ? 'ROOM LEFT' : 'OVER GOAL'}</Text><Text style={styles.heroValue}>{Math.abs(remaining).toLocaleString('en-IN')}</Text><Text style={styles.heroSub}>kcal {remaining >= 0 ? 'available today' : 'above target today'}</Text></View></GlassCard>
+    <GlassCard style={styles.summaryCard} contentStyle={styles.summaryInner}><View style={styles.summaryTop}><View><Text style={styles.summaryLabel}>DAILY PACE</Text><Text style={styles.summaryCopy}>{total > dailyGoal ? 'Goal crossed. Keep dinner light.' : `${remaining.toLocaleString('en-IN')} kcal left for today.`}</Text></View><Text style={styles.summaryValue}>{percent}%</Text></View><View style={styles.meterTrack}><View style={[styles.meterFill, { width: `${Math.min(100, percent)}%` }]} /></View></GlassCard>
+    <GlassCard style={styles.goalCard} contentStyle={styles.goalInner}><View><Text style={styles.goalLabel}>DAILY MAX</Text><Text style={styles.goalHint}>Visual target only</Text></View><TextInput value={goalDraft} onChangeText={setGoalDraft} keyboardType="number-pad" returnKeyType="done" onSubmitEditing={saveGoal} style={styles.goalInput} /><Pressable disabled={goalBusy} onPress={saveGoal} style={[styles.goalButton, goalBusy && styles.goalButtonBusy]}><Text style={styles.goalButtonText}>{goalBusy ? '…' : 'Set'}</Text></Pressable></GlassCard>
     <View style={styles.macroRow}><Macro value={Math.round(macros.protein)} label="PROTEIN" color="#f3be65" /><Macro value={Math.round(macros.carbs)} label="CARBS" color={colors.lime} /><Macro value={Math.round(macros.fat)} label="FAT" color="#e4d561" /></View>
     <GlassCard style={styles.inputBar} contentStyle={styles.inputBarInner}><TextInput value={message} onChangeText={setMessage} placeholder={'Say or type — "two eggs and toast"'} placeholderTextColor="#6b707b" style={styles.input} onSubmitEditing={() => addNatural('typed')} /><Pressable onPress={() => addNatural('voice')} style={styles.micButton}><MicGlyph size={23} /></Pressable></GlassCard>
     <View style={styles.quickFoodRow}>{quickFoods.map(food => <Pressable key={food} onPress={() => setMessage(food)} style={styles.quickFood}><Text style={styles.quickFoodText}>{food}</Text></Pressable>)}</View>
@@ -45,9 +57,9 @@ export default function CaloriesScreen() {
     {items.length === 0 ? <Text style={styles.empty}>No food logged yet.</Text> : items.map(entry => <GlassCard key={entry.id} onLongPress={() => remove(entry.id)} style={styles.foodCard} contentStyle={styles.foodCardInner}><View style={styles.foodMiddle}><Text style={styles.foodTitle}>{entry.item}</Text><Text style={styles.foodSub}>{entry.nutrition?.serving || entry.source}</Text>{entry.nutrition ? <View style={styles.foodMacros}><FoodMacro label="P" value={entry.nutrition.protein_g} /><FoodMacro label="C" value={entry.nutrition.carbs_g} /><FoodMacro label="F" value={entry.nutrition.fat_g} /></View> : null}</View><View style={styles.foodCalWrap}><Text style={styles.foodCal}>{entry.calories}</Text><Text style={styles.foodCalLabel}>kcal</Text></View></GlassCard>)}
   </ScrollView>;
 }
-function CalorieRing({ total }: { total: number }) {
+function CalorieRing({ total, goal }: { total: number; goal: number }) {
   const circumference = 439.8;
-  const targetFraction = Math.max(0, Math.min(1, total / DAILY_GOAL));
+  const targetFraction = Math.max(0, Math.min(1, total / goal));
   // One shared 0→1 progress drives both the arc offset and the counted-up number.
   const anim = useSharedValue(0);
   const [shownTotal, setShownTotal] = useState(0);
@@ -57,14 +69,14 @@ function CalorieRing({ total }: { total: number }) {
   }, [total, anim]);
   useAnimatedReaction(() => anim.value, v => { runOnJS(setShownTotal)(Math.round(total * v)); }, [total]);
   const animatedProps = useAnimatedProps(() => ({ strokeDashoffset: circumference * (1 - targetFraction * anim.value) }));
-  const shownLeft = Math.max(0, DAILY_GOAL - shownTotal);
+  const shownLeft = Math.max(0, goal - shownTotal);
   return <View style={styles.ringOuter}>
     <Svg width={168} height={168} viewBox="0 0 168 168" style={styles.ringSvg}>
       <Defs><LinearGradient id="calorieArc" x1="20" y1="20" x2="148" y2="148"><Stop offset="0" stopColor="#f3be65" /><Stop offset="1" stopColor={colors.lime} /></LinearGradient></Defs>
       <Circle cx="84" cy="84" r="70" stroke="rgba(255,255,255,0.07)" strokeWidth="14" fill="transparent" />
       <AnimatedCircle cx="84" cy="84" r="70" stroke="url(#calorieArc)" strokeWidth="14" fill="transparent" strokeLinecap="round" strokeDasharray={`${circumference} ${circumference}`} animatedProps={animatedProps} rotation="-90" origin="84,84" />
     </Svg>
-    <View style={styles.ringInner}><Text style={styles.total}>{shownTotal.toLocaleString('en-IN')}</Text><Text style={styles.goal}>of {DAILY_GOAL.toLocaleString('en-IN')} kcal</Text><Text style={styles.left}>{shownLeft.toLocaleString('en-IN')} LEFT</Text></View>
+    <View style={styles.ringInner}><Text style={styles.total}>{shownTotal.toLocaleString('en-IN')}</Text><Text style={styles.goal}>of {goal.toLocaleString('en-IN')} kcal</Text><Text style={styles.left}>{shownLeft.toLocaleString('en-IN')} LEFT</Text></View>
   </View>;
 }
 function Macro({ value, label, color }: { value: number; label: string; color: string }) { return <GlassCard style={styles.macro} contentStyle={styles.macroInner}><Text style={[styles.macroValue, { color }]}>{value}g</Text><Text style={styles.macroLabel}>{label}</Text></GlassCard>; }
@@ -91,7 +103,7 @@ const styles = StyleSheet.create({
   total: { color: colors.ink, fontSize: 42, fontFamily: fonts.displaySemibold, letterSpacing: -1.4 },
   goal: { color: colors.muted, fontSize: 13, fontFamily: fonts.bodyMedium, marginTop: 2 },
   left: { color: colors.lime, fontSize: 13, fontFamily: fonts.bodySemibold, marginTop: 6, letterSpacing: 1.2 },
-  summaryCard: { minHeight: 92, borderRadius: 24, marginBottom: 16 },
+  summaryCard: { minHeight: 92, borderRadius: 24, marginBottom: 12 },
   summaryInner: { flex: 1, paddingHorizontal: 18, paddingVertical: 15, justifyContent: 'center', gap: 12 },
   summaryTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14 },
   summaryLabel: { color: colors.muted, fontFamily: fonts.bodySemibold, fontSize: 10, letterSpacing: 2.2 },
@@ -99,6 +111,14 @@ const styles = StyleSheet.create({
   summaryCopy: { color: colors.soft, fontFamily: fonts.bodyMedium, lineHeight: 19, marginTop: 5 },
   meterTrack: { height: 6, borderRadius: 999, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.07)' },
   meterFill: { height: 6, borderRadius: 999, backgroundColor: colors.lime },
+  goalCard: { minHeight: 64, borderRadius: 22, marginBottom: 16 },
+  goalInner: { flex: 1, paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  goalLabel: { color: '#e6c783', fontFamily: fonts.bodySemibold, fontSize: 10, letterSpacing: 2.0 },
+  goalHint: { color: colors.muted, fontFamily: fonts.bodyMedium, fontSize: 12, marginTop: 4 },
+  goalInput: { flex: 1, minHeight: 42, borderRadius: 16, paddingHorizontal: 12, textAlign: 'right', color: colors.ink, backgroundColor: 'rgba(255,255,255,0.045)', fontFamily: fonts.displaySemibold, fontSize: 20 },
+  goalButton: { minWidth: 52, height: 42, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f3be65' },
+  goalButtonBusy: { opacity: 0.55 },
+  goalButtonText: { color: '#050608', fontFamily: fonts.bodySemibold, fontSize: 13 },
   macroRow: { flexDirection: 'row', gap: 12, marginBottom: 26 },
   macro: { flex: 1, height: 74, borderRadius: 22 },
   macroInner: { flex: 1, alignItems: 'center', justifyContent: 'center' },

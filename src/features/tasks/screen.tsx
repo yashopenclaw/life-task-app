@@ -29,6 +29,9 @@ export default function TasksScreen() {
   const done = tasks.filter(t => t.done).length;
   const open = tasks.length - done;
   const progress = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
+  const googleDisabled = tasks.some(task => task.google_sync_status === 'disabled');
+  const googleErrored = tasks.some(task => task.google_sync_status === 'error');
+  const googleLabel = googleErrored ? 'Google sync needs creds' : googleDisabled ? 'Google sync not connected' : 'Google Tasks mirror';
   const grouped = useMemo(() => Object.fromEntries(buckets.map(b => [b.key, tasks.filter(t => t.bucket === b.key)])) as Record<Bucket, Task[]>, [tasks]);
   const nextTask = tasks.find(task => !task.done && task.scheduled_at) || tasks.find(task => !task.done);
   function primeTask(text: string) { setMessage(text); setInputOpen(true); }
@@ -36,7 +39,7 @@ export default function TasksScreen() {
   return <View style={styles.root}>
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.wrap}>
       <View style={styles.topLine}><View><Text style={styles.kicker}>TODAY</Text><Text style={styles.title}>Tasks</Text><Text style={styles.subtitle}>{done} of {tasks.length || 0} done · keep the momentum</Text></View></View>
-      <GlassCard style={styles.progressCard} contentStyle={styles.progressInner}><View style={styles.progressCopy}><Text style={styles.progressLabel}>FOCUS LEFT</Text><Text style={styles.progressText}>{open ? `${open} open task${open === 1 ? '' : 's'}` : 'Clean slate.'}</Text></View><Text style={styles.progressPercent}>{progress}%</Text><View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${progress}%` }]} /></View></GlassCard>
+      <GlassCard style={styles.progressCard} contentStyle={styles.progressInner}><View style={styles.progressCopy}><Text style={styles.progressLabel}>FOCUS LEFT</Text><Text style={styles.progressText}>{open ? `${open} open task${open === 1 ? '' : 's'}` : 'Clean slate.'}</Text><Text style={[styles.googleSync, googleErrored && styles.googleSyncError]}>{googleLabel}</Text></View><Text style={styles.progressPercent}>{progress}%</Text><View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${progress}%` }]} /></View></GlassCard>
       <GlassCard style={styles.nextCard} contentStyle={styles.nextInner}><Text style={styles.nextLabel}>NEXT UP</Text><Text numberOfLines={2} style={styles.nextTitle}>{nextTask ? nextTask.title : 'Nothing urgent. Add one clean next step.'}</Text></GlassCard>
       <View style={styles.statsRow}><Stat value={open} label="OPEN" /><Stat value={done} label="DONE" /><Stat value={grouped.timewise.length} label="TIMED" /></View>
       {!inputOpen ? <View style={styles.quickRow}>{quickTasks.map(task => <Pressable key={task} onPress={() => primeTask(task)} style={styles.quickChip}><Text style={styles.quickChipText}>{task}</Text></Pressable>)}</View> : null}
@@ -76,6 +79,8 @@ const styles = StyleSheet.create({
   progressCopy: { paddingRight: 74 },
   progressLabel: { color: '#8fa9cf', fontFamily: fonts.bodySemibold, fontSize: 10, letterSpacing: 2.1 },
   progressText: { color: colors.soft, fontFamily: fonts.bodyMedium, marginTop: 6, fontSize: 15 },
+  googleSync: { color: '#8fa9cf', fontFamily: fonts.bodySemibold, marginTop: 7, fontSize: 11, letterSpacing: 0.6 },
+  googleSyncError: { color: colors.yellow },
   progressPercent: { position: 'absolute', right: 16, top: 14, color: colors.ink, fontFamily: fonts.displaySemibold, fontSize: 28, letterSpacing: -0.7 },
   progressTrack: { height: 6, borderRadius: 999, overflow: 'hidden', marginTop: 14, backgroundColor: 'rgba(255,255,255,0.07)' },
   progressFill: { height: 6, borderRadius: 999, backgroundColor: colors.blue },

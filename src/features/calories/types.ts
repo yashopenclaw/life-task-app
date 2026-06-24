@@ -2,3 +2,4 @@ export type NutritionEstimate = { item: string; serving: string; calories: numbe
 export type CalorieEntry = { id: string; date: string; item: string; calories: number; source: 'manual' | 'voice' | 'ai'; nutrition?: NutritionEstimate | null; created_at: string };
 export type CalorieInput = { date: string; item: string; calories: number; source: 'manual' | 'voice' | 'ai'; nutrition?: NutritionEstimate | null };
 export type CalorieNaturalResponse = { entry: CalorieEntry; parsed: CalorieInput; estimate: NutritionEstimate; system_prompt: string };
+export type CalorieSettings = { daily_goal: number };

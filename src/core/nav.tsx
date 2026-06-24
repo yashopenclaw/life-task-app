@@ -1,5 +1,5 @@
 import { ComponentType, useEffect, useMemo, useState } from 'react';
-import { Pressable, SafeAreaView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { features } from '../features';
 import { colors } from './theme';
 import { loadJson, saveJson } from './storage';
@@ -37,6 +37,7 @@ export function NavShell() {
   function selectTab(key: string) { setSelectedKey(key); saveJson(SELECTED_TAB_KEY, key); }
 
   const aurora = accentMap[selectedKey] || accentMap.assistant;
+  const topInset = Math.max(52, (StatusBar.currentHeight || 0) + 24);
 
   return <SafeAreaView style={styles.app}>
     <AuroraBackground accent={aurora.accent} accent2={aurora.accent2} />
@@ -44,7 +45,7 @@ export function NavShell() {
       {primaryFeatures.map(feature => {
         const Screen = feature.component as ComponentType;
         const active = selectedKey === feature.key;
-        return <View key={feature.key} style={[styles.screenSlot, !active && styles.screenHidden]}><Screen /></View>;
+        return <View key={feature.key} style={[styles.screenSlot, { paddingTop: topInset }, !active && styles.screenHidden]}><Screen /></View>;
       })}
     </View>
     <View style={[styles.bottomWrap, compact && styles.bottomWrapCompact]}>
@@ -68,7 +69,7 @@ const styles = StyleSheet.create({
   app: { flex: 1, backgroundColor: colors.bg, overflow: 'hidden' },
   content: { flex: 1, maxWidth: 560, width: '100%', alignSelf: 'center' },
   contentCompact: {},
-  screenSlot: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, paddingHorizontal: 24, paddingTop: 28, paddingBottom: 92 },
+  screenSlot: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, paddingHorizontal: 24, paddingBottom: 92 },
   screenHidden: { opacity: 0, display: 'none' },
   bottomWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 22, paddingBottom: 18, paddingTop: 8 },
   bottomWrapCompact: { paddingHorizontal: 16, paddingBottom: 14 },
