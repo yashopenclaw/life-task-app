@@ -18,7 +18,7 @@ const quickFoods = ['2 eggs + toast', 'protein shake', 'dal rice bowl'];
 export default function CaloriesScreen() {
   const { width } = useWindowDimensions();
   const narrowPhone = width < 390;
-  const { data, loading, error, load } = useAsync(useCallback(() => caloriesApi.list(), []));
+  const { data, loading, error, load, setData } = useAsync(useCallback(() => caloriesApi.list(), []));
   const settingsState = useAsync(useCallback(() => caloriesApi.settings(), []));
   const [busy, setBusy] = useState(false);
   const [goalBusy, setGoalBusy] = useState(false);
@@ -29,14 +29,25 @@ export default function CaloriesScreen() {
   async function saveGoal() {
     const next = Math.max(1, Math.min(20000, Number.parseInt(goalDraft.replace(/[^0-9]/g, ''), 10) || DEFAULT_DAILY_GOAL));
     setGoalBusy(true);
-    try { await caloriesApi.updateSettings({ daily_goal: next }); await settingsState.load(); }
+    try { const saved = await caloriesApi.updateSettings({ daily_goal: next }); settingsState.setData(saved); setGoalDraft(String(saved.daily_goal)); }
     finally { setGoalBusy(false); }
   }
   async function addNatural(source: 'typed' | 'voice' = 'typed') {
     const clean = message.trim(); if (!clean || busy) return;
-    setBusy(true); try { await caloriesApi.natural(clean, source); setMessage(''); await load(); } finally { setBusy(false); }
+    setBusy(true);
+    try {
+      const result = await caloriesApi.natural(clean, source);
+      setData(prev => [result.entry, ...(prev || [])]);
+      setMessage('');
+    } finally { setBusy(false); }
   }
-  async function remove(id: string) { await caloriesApi.remove(id); await load(); }
+  async function remove(id: string) {
+    const existing = data || [];
+    const removed = existing.find(entry => entry.id === id);
+    setData(existing.filter(entry => entry.id !== id));
+    try { await caloriesApi.remove(id); }
+    catch (err) { if (removed) setData(prev => [removed, ...(prev || [])]); throw err; }
+  }
   const today = new Date().toISOString().slice(0, 10);
   const items = (data || []).filter(entry => entry.date === today);
   const total = items.reduce((sum, entry) => sum + entry.calories, 0);
@@ -54,7 +65,7 @@ export default function CaloriesScreen() {
     <GlassCard style={styles.inputBar} contentStyle={styles.inputBarInner}><TextInput value={message} onChangeText={setMessage} placeholder={'Say or type — "two eggs and toast"'} placeholderTextColor="#6b707b" style={styles.input} onSubmitEditing={() => addNatural('typed')} /><Pressable onPress={() => addNatural('voice')} style={styles.micButton}><MicGlyph size={23} /></Pressable></GlassCard>
     <View style={styles.quickFoodRow}>{quickFoods.map(food => <Pressable key={food} onPress={() => setMessage(food)} style={styles.quickFood}><Text style={styles.quickFoodText}>{food}</Text></Pressable>)}</View>
     <View style={styles.sectionRow}><Text style={styles.section}>TODAY</Text><Text style={styles.entries}>{items.length} entries</Text></View>
-    {items.length === 0 ? <Text style={styles.empty}>No food logged yet.</Text> : items.map(entry => <GlassCard key={entry.id} onLongPress={() => remove(entry.id)} style={styles.foodCard} contentStyle={styles.foodCardInner}><View style={styles.foodMiddle}><Text style={styles.foodTitle}>{entry.item}</Text><Text style={styles.foodSub}>{entry.nutrition?.serving || entry.source}</Text>{entry.nutrition ? <View style={styles.foodMacros}><FoodMacro label="P" value={entry.nutrition.protein_g} /><FoodMacro label="C" value={entry.nutrition.carbs_g} /><FoodMacro label="F" value={entry.nutrition.fat_g} /></View> : null}</View><View style={styles.foodCalWrap}><Text style={styles.foodCal}>{entry.calories}</Text><Text style={styles.foodCalLabel}>kcal</Text></View></GlassCard>)}
+    {items.length === 0 ? <Text style={styles.empty}>No food logged yet.</Text> : items.map(entry => <GlassCard key={entry.id} style={styles.foodCard} contentStyle={styles.foodCardInner}><View style={styles.foodMiddle}><Text style={styles.foodTitle}>{entry.item}</Text><Text style={styles.foodSub}>{entry.nutrition?.serving || entry.source}</Text>{entry.nutrition ? <View style={styles.foodMacros}><FoodMacro label="P" value={entry.nutrition.protein_g} /><FoodMacro label="C" value={entry.nutrition.carbs_g} /><FoodMacro label="F" value={entry.nutrition.fat_g} /></View> : null}</View><View style={styles.foodCalWrap}><Text style={styles.foodCal}>{entry.calories}</Text><Text style={styles.foodCalLabel}>kcal</Text></View><Pressable accessibilityRole="button" onPress={() => remove(entry.id)} hitSlop={8} style={styles.foodDelete}><Text style={styles.foodDeleteText}>×</Text></Pressable></GlassCard>)}
   </ScrollView>;
 }
 function CalorieRing({ total, goal }: { total: number; goal: number }) {
@@ -147,4 +158,6 @@ const styles = StyleSheet.create({
   foodCalWrap: { minWidth: 52, alignItems: 'flex-end' },
   foodCal: { color: colors.lime, fontFamily: fonts.displaySemibold, fontSize: 20, letterSpacing: -0.4 },
   foodCalLabel: { color: colors.muted, fontFamily: fonts.bodySemibold, fontSize: 10, letterSpacing: 1.4, marginTop: 2 },
+  foodDelete: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.055)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.09)' },
+  foodDeleteText: { color: '#ffb18f', fontFamily: fonts.displayMedium, fontSize: 24, lineHeight: 26 },
 });

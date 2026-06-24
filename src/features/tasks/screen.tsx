@@ -16,15 +16,35 @@ const buckets: { key: Bucket; title: string; hint: string }[] = [
 const quickTasks = ['Review today at 9pm', 'Water plants every morning', 'Ship one useful app fix'];
 
 export default function TasksScreen() {
-  const { data, loading, error, load } = useAsync(useCallback(() => tasksApi.list(), []));
+  const { data, loading, error, load, setData } = useAsync(useCallback(() => tasksApi.list(), []));
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [inputOpen, setInputOpen] = useState(false);
   async function addNatural() {
     const clean = message.trim(); if (!clean || busy) return;
-    setBusy(true); try { await tasksApi.natural(clean, 'typed'); setMessage(''); setInputOpen(false); await load(); } finally { setBusy(false); }
+    setBusy(true);
+    try {
+      const result = await tasksApi.natural(clean, 'typed');
+      setData(prev => [result.task, ...(prev || [])]);
+      setMessage(''); setInputOpen(false);
+    } finally { setBusy(false); }
   }
-  async function complete(task: Task) { await tasksApi.update(task.id, { done: !task.done }); await load(); }
+  async function complete(task: Task) {
+    const nextDone = !task.done;
+    setData(prev => (prev || []).map(item => item.id === task.id ? { ...item, done: nextDone } : item));
+    try {
+      const updated = await tasksApi.update(task.id, { done: nextDone });
+      setData(prev => (prev || []).map(item => item.id === task.id ? updated : item));
+    } catch (err) {
+      setData(prev => (prev || []).map(item => item.id === task.id ? task : item));
+      throw err;
+    }
+  }
+  async function remove(task: Task) {
+    setData(prev => (prev || []).filter(item => item.id !== task.id));
+    try { await tasksApi.remove(task.id); }
+    catch (err) { setData(prev => [task, ...(prev || [])]); throw err; }
+  }
   const tasks = data || [];
   const done = tasks.filter(t => t.done).length;
   const open = tasks.length - done;
@@ -44,17 +64,22 @@ export default function TasksScreen() {
       <View style={styles.statsRow}><Stat value={open} label="OPEN" /><Stat value={done} label="DONE" /><Stat value={grouped.timewise.length} label="TIMED" /></View>
       {!inputOpen ? <View style={styles.quickRow}>{quickTasks.map(task => <Pressable key={task} onPress={() => primeTask(task)} style={styles.quickChip}><Text style={styles.quickChipText}>{task}</Text></Pressable>)}</View> : null}
       {inputOpen ? <GlassCard style={styles.quickInput} contentStyle={styles.quickInputInner}><TextInput value={message} onChangeText={setMessage} placeholder="Add by natural language…" placeholderTextColor="#6b707b" style={styles.input} onSubmitEditing={addNatural} autoFocus /><Pressable disabled={busy} onPress={addNatural} style={styles.quickButton}><Text style={styles.quickButtonText}>{busy ? '…' : '+'}</Text></Pressable><Pressable onPress={() => { setInputOpen(false); setMessage(''); }} style={styles.collapseButton}><Text style={styles.collapseText}>×</Text></Pressable></GlassCard> : null}
-      {buckets.map(bucket => <View key={bucket.key} style={styles.group}><View style={styles.sectionRow}><Text style={styles.section}>{bucket.title}</Text><View style={styles.bucketMeta}><Text style={styles.bucketCount}>{grouped[bucket.key].length}</Text><Text style={styles.sectionHint}>{bucket.hint}</Text></View></View>{grouped[bucket.key].length === 0 ? <GlassCard style={styles.emptyCard} contentStyle={styles.emptyCardInner}><Text style={styles.empty}>Nothing here.</Text></GlassCard> : grouped[bucket.key].map(task => <TaskCard key={task.id} task={task} onToggle={() => complete(task)} />)}</View>)}
+      {buckets.map(bucket => <View key={bucket.key} style={styles.group}><View style={styles.sectionRow}><Text style={styles.section}>{bucket.title}</Text><View style={styles.bucketMeta}><Text style={styles.bucketCount}>{grouped[bucket.key].length}</Text><Text style={styles.sectionHint}>{bucket.hint}</Text></View></View>{grouped[bucket.key].length === 0 ? <GlassCard style={styles.emptyCard} contentStyle={styles.emptyCardInner}><Text style={styles.empty}>Nothing here.</Text></GlassCard> : grouped[bucket.key].map(task => <TaskCard key={task.id} task={task} onToggle={() => complete(task)} onDelete={() => remove(task)} />)}</View>)}
     </ScrollView>
     {!inputOpen ? <Pressable onPress={() => setInputOpen(true)} style={styles.fab}><Text style={styles.fabText}>+</Text></Pressable> : null}
   </View>;
 }
 function Stat({ value, label }: { value: number; label: string }) { return <GlassCard style={styles.stat} contentStyle={styles.statInner}><Text style={styles.statValue}>{value}</Text><Text style={styles.statLabel}>{label}</Text></GlassCard>; }
-function TaskCard({ task, onToggle }: { task: Task; onToggle: () => void }) {
+function TaskCard({ task, onToggle, onDelete }: { task: Task; onToggle: () => void; onDelete: () => void }) {
   const time = task.scheduled_at ? new Date(task.scheduled_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : null;
   const date = task.scheduled_at ? scheduleLabel(task.scheduled_at) : null;
   const sub = task.recurring_rule ? task.recurring_rule.replace('natural:', '') : task.bucket === 'buffer' ? 'backlog' : task.bucket;
-  return <GlassCard onPress={onToggle} style={[styles.card, task.done && styles.cardDone]} contentStyle={styles.cardInner}><View style={[styles.check, task.done && styles.checkDone]}>{task.done ? <Text style={styles.checkMark}>✓</Text> : null}</View><View style={styles.taskTextWrap}><Text style={[styles.taskTitle, task.done && styles.done]}>{task.title}</Text><View style={styles.metaRow}><Text numberOfLines={1} style={styles.meta}>{sub}</Text>{task.priority >= 3 ? <View style={styles.priorityPill}><Text style={styles.priorityText}>P{task.priority}</Text></View> : null}</View></View>{time ? <View style={styles.timeStack}><View style={styles.timeChip}><Text style={styles.timeText}>{time}</Text></View>{date ? <Text style={styles.dateText}>{date}</Text> : null}</View> : null}</GlassCard>;
+  return <GlassCard style={[styles.card, task.done && styles.cardDone]} contentStyle={styles.cardInner}>
+    <Pressable accessibilityRole="button" onPress={onToggle} style={[styles.check, task.done && styles.checkDone]}>{task.done ? <Text style={styles.checkMark}>✓</Text> : null}</Pressable>
+    <Pressable onPress={onToggle} style={styles.taskTextWrap}><Text style={[styles.taskTitle, task.done && styles.done]}>{task.title}</Text><View style={styles.metaRow}><Text numberOfLines={1} style={styles.meta}>{sub}</Text>{task.priority >= 3 ? <View style={styles.priorityPill}><Text style={styles.priorityText}>P{task.priority}</Text></View> : null}</View></Pressable>
+    {time ? <View style={styles.timeStack}><View style={styles.timeChip}><Text style={styles.timeText}>{time}</Text></View>{date ? <Text style={styles.dateText}>{date}</Text> : null}</View> : null}
+    <Pressable accessibilityRole="button" onPress={onDelete} hitSlop={8} style={styles.deleteButton}><Text style={styles.deleteText}>×</Text></Pressable>
+  </GlassCard>;
 }
 function scheduleLabel(value: string) {
   const scheduled = new Date(value);
@@ -125,10 +150,12 @@ const styles = StyleSheet.create({
   meta: { color: colors.muted, fontFamily: fonts.bodyMedium, fontSize: 12, flexShrink: 1 },
   priorityPill: { borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2, backgroundColor: 'rgba(201,255,74,0.10)', borderWidth: 1, borderColor: 'rgba(201,255,74,0.18)' },
   priorityText: { color: colors.lime, fontFamily: fonts.bodySemibold, fontSize: 10, letterSpacing: 0.8 },
-  timeStack: { alignItems: 'flex-end', gap: 5 },
+  timeStack: { alignItems: 'flex-end', gap: 5, marginRight: 8 },
   timeChip: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: 'rgba(99,167,255,0.12)', borderWidth: 1, borderColor: 'rgba(99,167,255,0.20)' },
   timeText: { color: '#a8ccff', fontFamily: fonts.bodySemibold, fontSize: 12 },
   dateText: { color: colors.muted, fontFamily: fonts.bodySemibold, fontSize: 10, letterSpacing: 0.8, textTransform: 'uppercase' },
-  fab: { position: 'absolute', right: 22, bottom: 82, width: 54, height: 54, borderRadius: 27, backgroundColor: colors.blue, alignItems: 'center', justifyContent: 'center', shadowColor: colors.blue, shadowOpacity: 0.24, shadowRadius: 12, elevation: 8 },
+  deleteButton: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.055)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.09)' },
+  deleteText: { color: '#ff9f9f', fontFamily: fonts.displayMedium, fontSize: 24, lineHeight: 26 },
+  fab: { position: 'absolute', right: 22, bottom: 66, width: 54, height: 54, borderRadius: 27, backgroundColor: colors.blue, alignItems: 'center', justifyContent: 'center', shadowColor: colors.blue, shadowOpacity: 0.24, shadowRadius: 12, elevation: 8 },
   fabText: { color: '#fff', fontFamily: fonts.displayMedium, fontSize: 32, lineHeight: 34 },
 });
