@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import Animated, { Easing, runOnJS, useAnimatedProps, useAnimatedReaction, useSharedValue, withTiming } from 'react-native-reanimated';
 
@@ -16,6 +16,8 @@ const DAILY_GOAL = 2200;
 const quickFoods = ['2 eggs + toast', 'protein shake', 'dal rice bowl'];
 
 export default function CaloriesScreen() {
+  const { width } = useWindowDimensions();
+  const narrowPhone = width < 390;
   const { data, loading, error, load } = useAsync(useCallback(() => caloriesApi.list(), []));
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -34,7 +36,7 @@ export default function CaloriesScreen() {
 
   return <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.wrap}>
     <View style={styles.topLine}><View><Text style={styles.kicker}>TODAY · NUTRITION</Text><Text style={styles.title}>Calories</Text></View></View>
-    <GlassCard style={styles.heroCard} contentStyle={styles.heroInner}><View style={styles.ringWrap}><CalorieRing total={total} /></View><View style={styles.heroCopy}><Text style={styles.heroLabel}>{remaining >= 0 ? 'ROOM LEFT' : 'OVER GOAL'}</Text><Text style={styles.heroValue}>{Math.abs(remaining).toLocaleString('en-IN')}</Text><Text style={styles.heroSub}>kcal {remaining >= 0 ? 'available today' : 'above target today'}</Text></View></GlassCard>
+    <GlassCard style={[styles.heroCard, narrowPhone && styles.heroCardNarrow]} contentStyle={[styles.heroInner, narrowPhone && styles.heroInnerNarrow]}><View style={[styles.ringWrap, narrowPhone && styles.ringWrapNarrow]}><CalorieRing total={total} /></View><View style={[styles.heroCopy, narrowPhone && styles.heroCopyNarrow]}><Text style={styles.heroLabel}>{remaining >= 0 ? 'ROOM LEFT' : 'OVER GOAL'}</Text><Text style={styles.heroValue}>{Math.abs(remaining).toLocaleString('en-IN')}</Text><Text style={styles.heroSub}>kcal {remaining >= 0 ? 'available today' : 'above target today'}</Text></View></GlassCard>
     <GlassCard style={styles.summaryCard} contentStyle={styles.summaryInner}><View style={styles.summaryTop}><View><Text style={styles.summaryLabel}>DAILY PACE</Text><Text style={styles.summaryCopy}>{total > DAILY_GOAL ? 'Goal crossed. Keep dinner light.' : `${remaining.toLocaleString('en-IN')} kcal left for today.`}</Text></View><Text style={styles.summaryValue}>{percent}%</Text></View><View style={styles.meterTrack}><View style={[styles.meterFill, { width: `${Math.min(100, percent)}%` }]} /></View></GlassCard>
     <View style={styles.macroRow}><Macro value={Math.round(macros.protein)} label="PROTEIN" color="#f3be65" /><Macro value={Math.round(macros.carbs)} label="CARBS" color={colors.lime} /><Macro value={Math.round(macros.fat)} label="FAT" color="#e4d561" /></View>
     <GlassCard style={styles.inputBar} contentStyle={styles.inputBarInner}><TextInput value={message} onChangeText={setMessage} placeholder={'Say or type — "two eggs and toast"'} placeholderTextColor="#6b707b" style={styles.input} onSubmitEditing={() => addNatural('typed')} /><Pressable onPress={() => addNatural('voice')} style={styles.micButton}><MicGlyph size={23} /></Pressable></GlassCard>
@@ -72,9 +74,13 @@ const styles = StyleSheet.create({
   kicker: { color: '#8b909a', fontSize: 11, letterSpacing: 4.5, fontFamily: fonts.bodySemibold, marginBottom: 12 },
   title: { color: colors.ink, fontSize: 38, lineHeight: 43, fontFamily: fonts.displaySemibold, letterSpacing: -1.3 },
   heroCard: { minHeight: 210, borderRadius: 32, marginTop: 28, marginBottom: 16, borderColor: 'rgba(243,190,101,0.15)' },
+  heroCardNarrow: { minHeight: 308, marginTop: 22 },
   heroInner: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 18, paddingHorizontal: 14 },
+  heroInnerNarrow: { flexDirection: 'column', gap: 4, paddingVertical: 18 },
   ringWrap: { alignItems: 'center' },
+  ringWrapNarrow: { transform: [{ scale: 0.92 }], marginBottom: -4 },
   heroCopy: { minWidth: 112 },
+  heroCopyNarrow: { alignItems: 'center', minWidth: 0 },
   heroLabel: { color: '#a5a9b3', fontSize: 10, letterSpacing: 2.1, fontFamily: fonts.bodySemibold },
   heroValue: { color: colors.ink, fontSize: 38, fontFamily: fonts.displaySemibold, letterSpacing: -1.3, marginTop: 8 },
   heroSub: { color: colors.muted, fontSize: 13, lineHeight: 17, fontFamily: fonts.bodyMedium, marginTop: 2 },
