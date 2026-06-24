@@ -58,7 +58,7 @@ export default function TasksScreen() {
   if (loading) return <State loading />; if (error) return <State error={error} retry={load} />;
   return <View style={styles.root}>
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.wrap}>
-      <View style={styles.topLine}><View><Text style={styles.kicker}>TODAY</Text><Text style={styles.title}>Tasks</Text><Text style={styles.subtitle}>{done} of {tasks.length || 0} done · keep the momentum</Text></View></View>
+      <View style={styles.topLine}><View style={styles.titleBlock}><Text style={styles.kicker}>TODAY</Text><Text style={styles.title}>Tasks</Text><Text style={styles.subtitle}>{done} of {tasks.length || 0} done · Google Tasks mirror</Text></View>{!inputOpen ? <Pressable accessibilityRole="button" onPress={() => setInputOpen(true)} style={styles.headerAdd}><Text style={styles.headerAddText}>+</Text></Pressable> : null}</View>
       <GlassCard style={styles.progressCard} contentStyle={styles.progressInner}><View style={styles.progressCopy}><Text style={styles.progressLabel}>FOCUS LEFT</Text><Text style={styles.progressText}>{open ? `${open} open task${open === 1 ? '' : 's'}` : 'Clean slate.'}</Text><Text style={[styles.googleSync, googleErrored && styles.googleSyncError]}>{googleLabel}</Text></View><Text style={styles.progressPercent}>{progress}%</Text><View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${progress}%` }]} /></View></GlassCard>
       <GlassCard style={styles.nextCard} contentStyle={styles.nextInner}><Text style={styles.nextLabel}>NEXT UP</Text><Text numberOfLines={2} style={styles.nextTitle}>{nextTask ? nextTask.title : 'Nothing urgent. Add one clean next step.'}</Text></GlassCard>
       <View style={styles.statsRow}><Stat value={open} label="OPEN" /><Stat value={done} label="DONE" /><Stat value={grouped.timewise.length} label="TIMED" /></View>
@@ -66,7 +66,6 @@ export default function TasksScreen() {
       {inputOpen ? <GlassCard style={styles.quickInput} contentStyle={styles.quickInputInner}><TextInput value={message} onChangeText={setMessage} placeholder="Add by natural language…" placeholderTextColor="#6b707b" style={styles.input} onSubmitEditing={addNatural} autoFocus /><Pressable disabled={busy} onPress={addNatural} style={styles.quickButton}><Text style={styles.quickButtonText}>{busy ? '…' : '+'}</Text></Pressable><Pressable onPress={() => { setInputOpen(false); setMessage(''); }} style={styles.collapseButton}><Text style={styles.collapseText}>×</Text></Pressable></GlassCard> : null}
       {buckets.map(bucket => <View key={bucket.key} style={styles.group}><View style={styles.sectionRow}><Text style={styles.section}>{bucket.title}</Text><View style={styles.bucketMeta}><Text style={styles.bucketCount}>{grouped[bucket.key].length}</Text><Text style={styles.sectionHint}>{bucket.hint}</Text></View></View>{grouped[bucket.key].length === 0 ? <GlassCard style={styles.emptyCard} contentStyle={styles.emptyCardInner}><Text style={styles.empty}>Nothing here.</Text></GlassCard> : grouped[bucket.key].map(task => <TaskCard key={task.id} task={task} onToggle={() => complete(task)} onDelete={() => remove(task)} />)}</View>)}
     </ScrollView>
-    {!inputOpen ? <Pressable onPress={() => setInputOpen(true)} style={styles.fab}><Text style={styles.fabText}>+</Text></Pressable> : null}
   </View>;
 }
 function Stat({ value, label }: { value: number; label: string }) { return <GlassCard style={styles.stat} contentStyle={styles.statInner}><Text style={styles.statValue}>{value}</Text><Text style={styles.statLabel}>{label}</Text></GlassCard>; }
@@ -95,7 +94,10 @@ function scheduleLabel(value: string) {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   wrap: { paddingBottom: 92 },
-  topLine: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 },
+  topLine: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 28 },
+  titleBlock: { flex: 1 },
+  headerAdd: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.blue, shadowColor: colors.blue, shadowOpacity: 0.22, shadowRadius: 12, elevation: 8 },
+  headerAddText: { color: '#fff', fontFamily: fonts.displayMedium, fontSize: 31, lineHeight: 33 },
   kicker: { color: '#8b909a', fontSize: 11, letterSpacing: 4.5, fontFamily: fonts.bodySemibold, marginBottom: 12 },
   title: { color: colors.ink, fontSize: 38, fontFamily: fonts.displaySemibold, letterSpacing: -1.25, lineHeight: 43 },
   subtitle: { color: colors.muted, fontFamily: fonts.bodyMedium, marginTop: 10, fontSize: 15 },
@@ -156,6 +158,4 @@ const styles = StyleSheet.create({
   dateText: { color: colors.muted, fontFamily: fonts.bodySemibold, fontSize: 10, letterSpacing: 0.8, textTransform: 'uppercase' },
   deleteButton: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.055)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.09)' },
   deleteText: { color: '#ff9f9f', fontFamily: fonts.displayMedium, fontSize: 24, lineHeight: 26 },
-  fab: { position: 'absolute', right: 22, bottom: 66, width: 54, height: 54, borderRadius: 27, backgroundColor: colors.blue, alignItems: 'center', justifyContent: 'center', shadowColor: colors.blue, shadowOpacity: 0.24, shadowRadius: 12, elevation: 8 },
-  fabText: { color: '#fff', fontFamily: fonts.displayMedium, fontSize: 32, lineHeight: 34 },
 });
