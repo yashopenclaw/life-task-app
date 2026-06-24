@@ -1,10 +1,12 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useAsync } from '../../core/useAsync';
 import { State } from '../../core/ui/atoms';
+import { VoiceOrb } from '../../core/ui/VoiceOrb';
 import { GlassCard } from '../../core/ui/GlassCard';
 import { colors } from '../../core/theme';
 import { fonts } from '../../core/fonts';
+import { assistantApi } from '../assistant/api';
 import { tasksApi } from './api';
 import type { Bucket, Task } from './types';
 
@@ -20,15 +22,26 @@ export default function TasksScreen() {
   const [message, setMessage] = useState('');
   const [inputOpen, setInputOpen] = useState(false);
 
-  async function addNatural() {
-    const clean = message.trim(); if (!clean || busy) return;
+  async function addNatural(text?: string, source: 'typed' | 'voice' = 'typed') {
+    const clean = (text || message).trim(); if (!clean || busy) return;
     setBusy(true);
     try {
-      const result = await tasksApi.natural(clean, 'typed');
-      setData(prev => [result.task, ...(prev || [])]);
+      const result = await tasksApi.natural(clean, source);
+      // Get AI title for voice entries
+      if (source === 'voice') {
+        const title = await assistantApi.title(clean).catch(() => clean);
+        setData(prev => [{ ...result.task, title: title || result.task.title }, ...(prev || [])]);
+      } else {
+        setData(prev => [result.task, ...(prev || [])]);
+      }
       setMessage(''); setInputOpen(false);
     } finally { setBusy(false); }
   }
+
+  function onVoiceTranscript(text: string) {
+    addNatural(text, 'voice');
+  }
+
   async function complete(task: Task) {
     const nextDone = !task.done;
     setData(prev => (prev || []).map(item => item.id === task.id ? { ...item, done: nextDone } : item));
@@ -45,13 +58,12 @@ export default function TasksScreen() {
     catch { setData(prev => [task, ...(prev || [])]); }
   }
   const tasks = (data || []).filter(t => !t.done);
-  const allCount = data?.length || 0;
   const grouped = useMemo(() => Object.fromEntries(buckets.map(b => [b.key, tasks.filter(t => t.bucket === b.key)])) as Record<Bucket, Task[]>, [tasks]);
   if (loading) return <State loading />; if (error) return <State error={error} retry={load} />;
 
   return <View style={styles.root}>
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.wrap}>
-      {/* Header — title + add button */}
+      {/* Header */}
       <View style={styles.header}>
         <View>
           <Text style={styles.kicker}>TODAY</Text>
@@ -62,18 +74,23 @@ export default function TasksScreen() {
         </Pressable>
       </View>
 
-      {/* Single open count line */}
+      {/* Open count */}
       <Text style={styles.openCount}>
         {tasks.length > 0 ? `${tasks.length} open` : 'All clear'}
       </Text>
 
       {/* Inline add input */}
       {inputOpen ? <GlassCard style={styles.inputCard} contentStyle={styles.inputCardInner}>
-        <TextInput value={message} onChangeText={setMessage} placeholder="Add a task — natural language…" placeholderTextColor="#555b66" style={styles.input} onSubmitEditing={addNatural} autoFocus />
-        <Pressable disabled={busy} onPress={addNatural} style={styles.inputSend}>
-          <Text style={styles.inputSendText}>{busy ? '···' : '+'}</Text>
-        </Pressable>
+        <TextInput value={message} onChangeText={setMessage} placeholder="Add a task — natural language…" placeholderTextColor="#555b66" style={styles.input} onSubmitEditing={() => addNatural()} autoFocus />
+        {message.trim() ? (
+          <Pressable disabled={busy} onPress={() => addNatural()} style={styles.inputSend}>
+            {busy ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.inputSendText}>+</Text>}
+          </Pressable>
+        ) : (
+          <VoiceOrb onTranscript={onVoiceTranscript} accent={colors.blue} size={44} />
+        )}
       </GlassCard> : null}
+      {busy && inputOpen && !message.trim() ? <Text style={styles.parsing}>Listening & parsing…</Text> : null}
 
       {/* Buckets */}
       {buckets.map(bucket => {
@@ -100,7 +117,7 @@ function TaskCard({ task, onToggle, onDelete }: { task: Task; onToggle: () => vo
       {task.done ? <Text style={styles.checkMark}>✓</Text> : null}
     </Pressable>
     <Pressable onPress={onToggle} style={styles.taskBody}>
-      <Text style={[styles.taskTitle, task.done && styles.taskDone]}>{task.title}</Text>
+      <Text style={styles.taskTitle}>{task.title}</Text>
       <View style={styles.metaRow}>
         <Text numberOfLines={1} style={styles.meta}>{sub}</Text>
         {time ? <Text style={styles.timeText}>· {time}</Text> : null}
@@ -122,11 +139,12 @@ const styles = StyleSheet.create({
   addBtn: { width: 42, height: 42, borderRadius: 18, backgroundColor: colors.blue, alignItems: 'center', justifyContent: 'center', shadowColor: colors.blue, shadowOpacity: 0.25, shadowRadius: 12, elevation: 6 },
   addBtnText: { color: '#fff', fontFamily: fonts.displayMedium, fontSize: 24, lineHeight: 26 },
   openCount: { color: colors.soft, fontFamily: fonts.bodyMedium, fontSize: 14, marginTop: 12, marginBottom: 20 },
-  inputCard: { height: 54, borderRadius: 18, marginBottom: 24 },
+  inputCard: { height: 54, borderRadius: 18, marginBottom: 8 },
   inputCardInner: { flexDirection: 'row', alignItems: 'center', paddingLeft: 16, paddingRight: 6 },
   input: { flex: 1, color: colors.ink, fontFamily: fonts.bodyMedium, fontSize: 14, minHeight: 44 },
   inputSend: { width: 44, height: 44, borderRadius: 16, backgroundColor: colors.blue, alignItems: 'center', justifyContent: 'center' },
   inputSendText: { color: '#fff', fontFamily: fonts.displayMedium, fontSize: 22, lineHeight: 24 },
+  parsing: { color: colors.muted, fontSize: 12, fontFamily: fonts.bodyMedium, textAlign: 'center', marginBottom: 16 },
   bucket: { marginBottom: 24 },
   bucketHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   bucketTitle: { color: colors.soft, fontSize: 13, fontFamily: fonts.bodySemibold, letterSpacing: 0.3 },

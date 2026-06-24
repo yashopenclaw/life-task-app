@@ -60,4 +60,13 @@ export const assistantApi = {
     if (errorText && !fullText) throw new Error(errorText);
     return fullText;
   },
+  transcribe: async (uri: string): Promise<string> => {
+    const formData = new FormData();
+    formData.append('file', { uri, name: 'audio.m4a', type: 'audio/m4a' } as any);
+    const response = await fetch(endpoint('/assistant/transcribe'), { method: 'POST', body: formData });
+    if (!response.ok) throw new Error(`Transcribe failed: ${response.status}`);
+    const data = await response.json();
+    return data.text || '';
+  },
+  title: (message: string) => request<{ text: string }>('/assistant/title', { method: 'POST', body: JSON.stringify({ message, source: 'typed' }) }).then(r => r.text),
 };

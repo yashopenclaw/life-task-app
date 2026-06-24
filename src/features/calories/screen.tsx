@@ -6,9 +6,11 @@ import Animated, { Easing, runOnJS, useAnimatedProps, useAnimatedReaction, useSh
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 import { useAsync } from '../../core/useAsync';
 import { State } from '../../core/ui/atoms';
+import { VoiceOrb } from '../../core/ui/VoiceOrb';
 import { GlassCard } from '../../core/ui/GlassCard';
 import { colors } from '../../core/theme';
 import { fonts } from '../../core/fonts';
+import { assistantApi } from '../assistant/api';
 import { caloriesApi } from './api';
 
 const DEFAULT_DAILY_GOAL = 2200;
@@ -20,6 +22,7 @@ export default function CaloriesScreen() {
   const settingsState = useAsync(useCallback(() => caloriesApi.settings(), []));
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [voiceText, setVoiceText] = useState('');
   const dailyGoal = settingsState.data?.daily_goal || DEFAULT_DAILY_GOAL;
   const [goalEditOpen, setGoalEditOpen] = useState(false);
   const [goalDraft, setGoalDraft] = useState(String(dailyGoal));
@@ -31,15 +34,32 @@ export default function CaloriesScreen() {
     try { const saved = await caloriesApi.updateSettings({ daily_goal: next }); settingsState.setData(saved); setGoalDraft(String(saved.daily_goal)); }
     catch { setGoalDraft(String(dailyGoal)); }
   }
-  async function addNatural() {
-    const clean = message.trim(); if (!clean || busy) return;
+
+  async function submitEntry(text: string, source: 'typed' | 'voice') {
+    const clean = text.trim(); if (!clean || busy) return;
     setBusy(true);
     try {
-      const result = await caloriesApi.natural(clean, 'typed');
-      setData(prev => [result.entry, ...(prev || [])]);
+      const result = await caloriesApi.natural(clean, source);
+      // For voice entries, get a clean AI-generated title
+      let itemTitle = result.entry.item;
+      if (source === 'voice') {
+        itemTitle = await assistantApi.title(clean).catch(() => result.entry.item);
+      }
+      setData(prev => [{ ...result.entry, item: itemTitle }, ...(prev || [])]);
       setMessage('');
+      setVoiceText('');
     } finally { setBusy(false); }
   }
+
+  async function addNatural() {
+    await submitEntry(message, 'typed');
+  }
+
+  function onVoiceTranscript(text: string) {
+    setVoiceText(text);
+    submitEntry(text, 'voice');
+  }
+
   async function remove(id: string) {
     const existing = data || [];
     const removed = existing.find(entry => entry.id === id);
@@ -61,9 +81,9 @@ export default function CaloriesScreen() {
       <Text style={styles.title}>Calories</Text>
     </View>
 
-    {/* Ring as sole hero */}
+    {/* Ring — no loading state on it */}
     <View style={styles.ringHero}>
-      <CalorieRing total={total} goal={dailyGoal} remaining={remaining} percent={percent} busy={busy} />
+      <CalorieRing total={total} goal={dailyGoal} remaining={remaining} percent={percent} />
     </View>
 
     {/* Goal line */}
@@ -83,21 +103,26 @@ export default function CaloriesScreen() {
       <Macro value={Math.round(macros.fat)} label="Fat" color="#e4d561" />
     </View>
 
-    {/* Input bar — submit arrow, not mic */}
+    {/* Input bar — text input + voice orb */}
     <GlassCard style={styles.inputBar} contentStyle={styles.inputBarInner}>
       <TextInput
         value={message}
         onChangeText={setMessage}
-        placeholder='Log food — "two eggs and toast"'
-        placeholderTextColor="#555b66"
+        placeholder={voiceText ? `"${voiceText.slice(0, 30)}…"` : 'Log food — "two eggs and toast"'}
+        placeholderTextColor={voiceText ? colors.lime : '#555b66'}
         style={styles.input}
         onSubmitEditing={addNatural}
         editable={!busy}
       />
-      <Pressable onPress={addNatural} disabled={busy || !message.trim()} style={[styles.submitButton, (busy || !message.trim()) && styles.submitButtonDisabled]}>
-        {busy ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.submitArrow}>↑</Text>}
-      </Pressable>
+      {message.trim() ? (
+        <Pressable onPress={addNatural} disabled={busy} style={[styles.submitButton, busy && styles.submitButtonDisabled]}>
+          {busy ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.submitArrow}>↑</Text>}
+        </Pressable>
+      ) : (
+        <VoiceOrb onTranscript={onVoiceTranscript} accent={colors.primary} size={44} />
+      )}
     </GlassCard>
+    {busy && voiceText ? <Text style={styles.parsing}>Parsing "{voiceText.slice(0, 40)}"…</Text> : null}
 
     {/* Today's entries */}
     <Text style={styles.sectionLabel}>Today · {items.length}</Text>
@@ -124,7 +149,7 @@ export default function CaloriesScreen() {
   </ScrollView>;
 }
 
-function CalorieRing({ total, goal, remaining, percent, busy }: { total: number; goal: number; remaining: number; percent: number; busy: boolean }) {
+function CalorieRing({ total, goal, remaining, percent }: { total: number; goal: number; remaining: number; percent: number }) {
   const circumference = 439.8;
   const targetFraction = Math.max(0, Math.min(1, total / goal));
   const anim = useSharedValue(0);
@@ -143,14 +168,9 @@ function CalorieRing({ total, goal, remaining, percent, busy }: { total: number;
       <AnimatedCircle cx="84" cy="84" r="70" stroke="url(#calorieArc)" strokeWidth="10" fill="transparent" strokeLinecap="round" strokeDasharray={`${circumference} ${circumference}`} animatedProps={animatedProps} rotation="-90" origin="84,84" />
     </Svg>
     <View style={styles.ringInner}>
-      {busy ? <>
-        <ActivityIndicator size="large" color={colors.lime} />
-        <Text style={styles.ringThinking}>Parsing…</Text>
-      </> : <>
-        <Text style={styles.ringTotal}>{shownTotal.toLocaleString('en-IN')}</Text>
-        <Text style={styles.ringUnit}>of {goal.toLocaleString('en-IN')}</Text>
-        <Text style={[styles.ringRemaining, over && styles.ringOver]}>{over ? `${Math.abs(remaining).toLocaleString('en-IN')} over` : `${remaining.toLocaleString('en-IN')} left`}</Text>
-      </>}
+      <Text style={styles.ringTotal}>{shownTotal.toLocaleString('en-IN')}</Text>
+      <Text style={styles.ringUnit}>of {goal.toLocaleString('en-IN')}</Text>
+      <Text style={[styles.ringRemaining, over && styles.ringOver]}>{over ? `${Math.abs(remaining).toLocaleString('en-IN')} over` : `${remaining.toLocaleString('en-IN')} left`}</Text>
     </View>
   </View>;
 }
@@ -178,7 +198,6 @@ const styles = StyleSheet.create({
   ringUnit: { color: colors.muted, fontSize: 12, fontFamily: fonts.bodyMedium, marginTop: 2 },
   ringRemaining: { color: colors.lime, fontSize: 13, fontFamily: fonts.bodySemibold, marginTop: 8, letterSpacing: 0.3 },
   ringOver: { color: colors.danger },
-  ringThinking: { color: colors.lime, fontSize: 13, fontFamily: fonts.bodySemibold, marginTop: 10, letterSpacing: 0.3 },
   goalLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 8 },
   goalLineText: { color: colors.muted, fontSize: 13, fontFamily: fonts.bodyMedium },
   goalLineEdit: { color: colors.primary, fontSize: 12, fontFamily: fonts.bodySemibold },
@@ -192,12 +211,13 @@ const styles = StyleSheet.create({
   macroValue: { fontFamily: fonts.displaySemibold, fontSize: 20, letterSpacing: -0.3 },
   macroUnit: { fontSize: 13, fontFamily: fonts.bodyMedium, color: colors.muted },
   macroLabel: { color: colors.muted, fontSize: 11, fontFamily: fonts.bodyMedium, marginTop: 5, letterSpacing: 0.3 },
-  inputBar: { height: 54, borderRadius: 20, marginBottom: 24 },
+  inputBar: { height: 54, borderRadius: 20, marginBottom: 8 },
   inputBarInner: { flexDirection: 'row', alignItems: 'center', paddingLeft: 16, paddingRight: 6 },
   input: { flex: 1, color: colors.ink, fontFamily: fonts.bodyMedium, fontSize: 14 },
   submitButton: { width: 44, height: 44, borderRadius: 16, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  submitButtonDisabled: { opacity: 0.4 },
+  submitButtonDisabled: { opacity: 0.5 },
   submitArrow: { color: '#fff', fontFamily: fonts.bodySemibold, fontSize: 22, lineHeight: 24 },
+  parsing: { color: colors.muted, fontSize: 12, fontFamily: fonts.bodyMedium, textAlign: 'center', marginBottom: 16 },
   sectionLabel: { color: colors.muted, fontSize: 12, fontFamily: fonts.bodySemibold, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 14 },
   empty: { color: colors.muted, fontFamily: fonts.bodyMedium, fontSize: 14, paddingVertical: 10 },
   foodCard: { minHeight: 72, borderRadius: 20, marginBottom: 8 },
