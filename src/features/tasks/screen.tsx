@@ -13,6 +13,7 @@ const buckets: { key: Bucket; title: string; hint: string }[] = [
   { key: 'timewise', title: 'TIMEWISE', hint: 'scheduled' },
   { key: 'recurring', title: 'RECURRING', hint: 'rhythm' },
 ];
+const quickTasks = ['Review today at 9pm', 'Water plants every morning', 'Ship one useful app fix'];
 
 export default function TasksScreen() {
   const { data, loading, error, load } = useAsync(useCallback(() => tasksApi.list(), []));
@@ -29,12 +30,14 @@ export default function TasksScreen() {
   const open = tasks.length - done;
   const progress = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
   const grouped = useMemo(() => Object.fromEntries(buckets.map(b => [b.key, tasks.filter(t => t.bucket === b.key)])) as Record<Bucket, Task[]>, [tasks]);
+  function primeTask(text: string) { setMessage(text); setInputOpen(true); }
   if (loading) return <State loading />; if (error) return <State error={error} retry={load} />;
   return <View style={styles.root}>
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.wrap}>
       <View style={styles.topLine}><View><Text style={styles.kicker}>TODAY</Text><Text style={styles.title}>Tasks</Text><Text style={styles.subtitle}>{done} of {tasks.length || 0} done · keep the momentum</Text></View></View>
       <GlassCard style={styles.progressCard} contentStyle={styles.progressInner}><View style={styles.progressCopy}><Text style={styles.progressLabel}>FOCUS LEFT</Text><Text style={styles.progressText}>{open ? `${open} open task${open === 1 ? '' : 's'}` : 'Clean slate.'}</Text></View><Text style={styles.progressPercent}>{progress}%</Text><View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${progress}%` }]} /></View></GlassCard>
       <View style={styles.statsRow}><Stat value={open} label="OPEN" /><Stat value={done} label="DONE" /><Stat value={grouped.timewise.length} label="TIMED" /></View>
+      {!inputOpen ? <View style={styles.quickRow}>{quickTasks.map(task => <Pressable key={task} onPress={() => primeTask(task)} style={styles.quickChip}><Text style={styles.quickChipText}>{task}</Text></Pressable>)}</View> : null}
       {inputOpen ? <GlassCard style={styles.quickInput} contentStyle={styles.quickInputInner}><TextInput value={message} onChangeText={setMessage} placeholder="Add by natural language…" placeholderTextColor="#6b707b" style={styles.input} onSubmitEditing={addNatural} autoFocus /><Pressable disabled={busy} onPress={addNatural} style={styles.quickButton}><Text style={styles.quickButtonText}>{busy ? '…' : '+'}</Text></Pressable><Pressable onPress={() => { setInputOpen(false); setMessage(''); }} style={styles.collapseButton}><Text style={styles.collapseText}>×</Text></Pressable></GlassCard> : null}
       {buckets.map(bucket => <View key={bucket.key} style={styles.group}><View style={styles.sectionRow}><Text style={styles.section}>{bucket.title}</Text><View style={styles.bucketMeta}><Text style={styles.bucketCount}>{grouped[bucket.key].length}</Text><Text style={styles.sectionHint}>{bucket.hint}</Text></View></View>{grouped[bucket.key].length === 0 ? <GlassCard style={styles.emptyCard} contentStyle={styles.emptyCardInner}><Text style={styles.empty}>Nothing here.</Text></GlassCard> : grouped[bucket.key].map(task => <TaskCard key={task.id} task={task} onToggle={() => complete(task)} />)}</View>)}
     </ScrollView>
@@ -67,6 +70,9 @@ const styles = StyleSheet.create({
   statInner: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   statValue: { color: colors.ink, fontFamily: fonts.displaySemibold, fontSize: 24, letterSpacing: -0.5 },
   statLabel: { color: '#8fa9cf', fontFamily: fonts.bodySemibold, fontSize: 10, letterSpacing: 1.7, marginTop: 5 },
+  quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: -8, marginBottom: 26 },
+  quickChip: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: 'rgba(99,167,255,0.10)', borderWidth: 1, borderColor: 'rgba(99,167,255,0.18)' },
+  quickChipText: { color: '#b8d8ff', fontFamily: fonts.bodySemibold, fontSize: 12 },
   quickInput: { minHeight: 60, borderRadius: 22, marginBottom: 32 },
   quickInputInner: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingLeft: 18, paddingRight: 8 },
   input: { flex: 1, color: colors.ink, fontFamily: fonts.bodyMedium, minHeight: 44, fontSize: 15 },
