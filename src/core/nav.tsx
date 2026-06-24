@@ -1,5 +1,6 @@
 import { ComponentType, useEffect, useMemo, useState } from 'react';
 import { Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { features } from '../features';
 import { colors } from './theme';
 import { loadJson, saveJson } from './storage';
@@ -15,9 +16,9 @@ const iconMap: Record<string, TabIconName> = {
   tasks: 'check',
 };
 const accentMap: Record<string, { accent: string; accent2: string }> = {
-  assistant: { accent: colors.primary, accent2: colors.blue },
-  calories: { accent: '#f3be65', accent2: colors.lime },
-  tasks: { accent: colors.blue, accent2: colors.primary },
+  assistant: { accent: '#8a7cff', accent2: '#5b9eff' },
+  calories: { accent: '#f3be65', accent2: '#c9ff4a' },
+  tasks: { accent: '#5b9eff', accent2: '#8a7cff' },
 };
 const SELECTED_TAB_KEY = 'life-task:selected-tab:v1';
 
@@ -27,20 +28,34 @@ export function NavShell() {
   const primaryFeatures = useMemo(() => features.filter(f => visibleTabs.includes(f.key)), []);
   const [selectedKey, setSelectedKey] = useState(primaryFeatures[0]?.key || 'assistant');
 
+  // Animated indicator position
+  const colorProgress = useSharedValue(0);
+  const tabKeys = primaryFeatures.map(f => f.key);
+  const maxIndex = Math.max(1, tabKeys.length - 1);
+
   useEffect(() => {
     loadJson<string>(SELECTED_TAB_KEY, primaryFeatures[0]?.key || 'assistant').then(saved => {
-      if (primaryFeatures.some(feature => feature.key === saved)) setSelectedKey(saved);
+      if (primaryFeatures.some(feature => feature.key === saved)) {
+        setSelectedKey(saved);
+        const idx = tabKeys.indexOf(saved);
+        colorProgress.value = idx / maxIndex;
+      }
       else saveJson(SELECTED_TAB_KEY, primaryFeatures[0]?.key || 'assistant');
     });
   }, [primaryFeatures]);
 
-  function selectTab(key: string) { setSelectedKey(key); saveJson(SELECTED_TAB_KEY, key); }
+  function selectTab(key: string) {
+    setSelectedKey(key); saveJson(SELECTED_TAB_KEY, key);
+    const idx = tabKeys.indexOf(key);
+    colorProgress.value = withTiming(idx / maxIndex, { duration: 700, easing: Easing.inOut(Easing.cubic) });
+  }
 
-  const aurora = accentMap[selectedKey] || accentMap.assistant;
   const topInset = Math.max(52, (StatusBar.currentHeight || 0) + 24);
 
   return <SafeAreaView style={styles.app}>
-    <AuroraBackground accent={aurora.accent} accent2={aurora.accent2} />
+    {/* Deep aurora wash — per-screen dark base + accent glow */}
+    <AuroraBackground screen={selectedKey} />
+
     <View style={[styles.content, compact && styles.contentCompact]}>
       {primaryFeatures.map(feature => {
         const Screen = feature.component as ComponentType;
@@ -48,37 +63,68 @@ export function NavShell() {
         return <View key={feature.key} style={[styles.screenSlot, { paddingTop: topInset }, !active && styles.screenHidden]}><Screen /></View>;
       })}
     </View>
-    <View style={[styles.bottomWrap, compact && styles.bottomWrapCompact]}>
-      <GlassCard style={styles.rail} contentStyle={styles.railContent}>
-        <View style={styles.railScroller}>
-          {primaryFeatures.map(f => {
-            const active = selectedKey === f.key;
-            const accent = (accentMap[f.key] || accentMap.assistant).accent;
-            return <Pressable key={f.key} accessibilityRole="button" onPress={() => selectTab(f.key)} style={[styles.iconButton, active && styles.iconButtonActive, active && { backgroundColor: accent, shadowColor: accent }]}>
-              {active ? <View style={styles.activeSheen} /> : null}
-              <TabIcon name={iconMap[f.key] || 'square'} active={active} color={active ? '#050608' : '#7f8590'} size={21} />
-              <Text numberOfLines={1} style={[styles.tabLabel, !active && styles.tabLabelMuted]}>{f.title}</Text>
-            </Pressable>;
-          })}
-        </View>
-      </GlassCard>
-    </View>
+
+    <LiquidRail
+      tabs={primaryFeatures}
+      selectedKey={selectedKey}
+      onSelect={selectTab}
+      colorProgress={colorProgress}
+      tabKeys={tabKeys}
+      maxIndex={maxIndex}
+    />
   </SafeAreaView>;
 }
+
+function LiquidRail({ tabs, selectedKey, onSelect, colorProgress, tabKeys, maxIndex }: {
+  tabs: typeof features;
+  selectedKey: string;
+  onSelect: (key: string) => void;
+  colorProgress: any;
+  tabKeys: string[];
+  maxIndex: number;
+}) {
+  const indicatorStyle = useAnimatedStyle(() => {
+    'worklet';
+    const idx = colorProgress.value * maxIndex;
+    const tabWidth = 100 / tabKeys.length;
+    return { left: `${idx * tabWidth}%`, width: `${tabWidth}%` };
+  });
+
+  return <View style={styles.bottomWrap}>
+    <View style={styles.rail}>
+      <Animated.View style={[styles.indicator, indicatorStyle]} />
+      {tabs.map(f => {
+        const active = selectedKey === f.key;
+        const idx = tabKeys.indexOf(f.key);
+        const tabColor = useAnimatedStyle(() => {
+          'worklet';
+          const target = idx / maxIndex;
+          const dist = Math.abs(colorProgress.value - target);
+          const opacity = Math.max(0.3, 1 - dist * 2.5);
+          return { opacity };
+        });
+        const accent = (accentMap[f.key] || accentMap.assistant).accent;
+        return <Pressable key={f.key} accessibilityRole="button" onPress={() => onSelect(f.key)} style={styles.tabButton}>
+          <Animated.View style={[styles.tabContent, tabColor]}>
+            <TabIcon name={iconMap[f.key] || 'square'} active={active} color={active ? accent : '#6c717c'} size={20} />
+            <Text numberOfLines={1} style={[styles.tabLabel, active && { color: accent }]}>{f.title}</Text>
+          </Animated.View>
+        </Pressable>;
+      })}
+    </View>
+  </View>;
+}
+
 const styles = StyleSheet.create({
-  app: { flex: 1, backgroundColor: colors.bg, overflow: 'hidden' },
+  app: { flex: 1, backgroundColor: '#08090e', overflow: 'hidden' },
   content: { flex: 1, maxWidth: 560, width: '100%', alignSelf: 'center' },
   contentCompact: {},
-  screenSlot: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, paddingHorizontal: 24, paddingBottom: 92 },
+  screenSlot: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, paddingHorizontal: 24, paddingBottom: 96 },
   screenHidden: { opacity: 0, display: 'none' },
-  bottomWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 22, paddingBottom: 18, paddingTop: 8 },
-  bottomWrapCompact: { paddingHorizontal: 16, paddingBottom: 14 },
-  rail: { height: 68, borderRadius: 34, shadowColor: '#000', shadowOpacity: 0.42, shadowRadius: 22, elevation: 16 },
-  railContent: { flex: 1 },
-  railScroller: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8, gap: 7 },
-  iconButton: { flex: 1, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6, paddingHorizontal: 8, shadowOpacity: 0.24, shadowRadius: 10, elevation: 5, overflow: 'hidden' },
-  iconButtonActive: { flex: 1.12 },
-  activeSheen: { position: 'absolute', left: 10, right: 10, top: 5, height: 1, backgroundColor: 'rgba(255,255,255,0.34)' },
-  tabLabel: { color: '#050608', fontFamily: fonts.bodySemibold, fontSize: 11.5, letterSpacing: 0.1 },
-  tabLabelMuted: { color: '#8f96a1' },
+  bottomWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 24, paddingBottom: 16, paddingTop: 6 },
+  rail: { flexDirection: 'row', height: 58, borderRadius: 29, backgroundColor: 'rgba(14,16,20,0.82)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', overflow: 'hidden' as const, shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 20, shadowOffset: { width: 0, height: 4 }, elevation: 12 },
+  indicator: { position: 'absolute', top: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 29 },
+  tabButton: { flex: 1, height: 58, alignItems: 'center', justifyContent: 'center' },
+  tabContent: { flexDirection: 'row', alignItems: 'center', gap: 7, height: 38, borderRadius: 19, paddingHorizontal: 14 },
+  tabLabel: { color: '#6c717c', fontFamily: fonts.bodyMedium, fontSize: 12, letterSpacing: 0.2 },
 });
