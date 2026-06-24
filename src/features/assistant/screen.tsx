@@ -84,11 +84,13 @@ export default function AssistantScreen() {
       <View style={styles.statusPill}><Text style={styles.statusDot}>●</Text><Text style={styles.statusText}>{busy ? 'thinking' : recorderState.isRecording ? 'listening' : 'ready'}</Text></View>
       <View style={styles.statusPill}><Text style={styles.statusText}>{autoSpeak ? 'voice on' : 'voice off'}</Text></View>
     </View>
-    <View style={[styles.centerZone, tightPhone && styles.centerZoneTight, hasChat && styles.centerZoneWithChat]}>
-      <MicOrb recording={recorderState.isRecording} onPress={toggleRecording} />
-      <Text style={[styles.prompt, tightPhone && styles.promptTight]}>{recorderState.isRecording ? `${Math.round(recorderState.durationMillis / 1000)}s · tap to stop` : voiceDraft ? `${voiceDraft.seconds}s captured. Type transcript below.` : busy ? 'Streaming Hermes…' : 'Tap the orb to talk.'}</Text>
-      {!hasChat ? <Text style={styles.helper}>Ask, dump a thought, or capture a task without leaving the main page.</Text> : null}
-    </View>
+    <GlassCard style={[styles.micHero, tightPhone && styles.micHeroTight, hasChat && styles.micHeroWithChat]} contentStyle={styles.micHeroInner}>
+      <View style={[styles.centerZone, tightPhone && styles.centerZoneTight, hasChat && styles.centerZoneWithChat]}>
+        <MicOrb recording={recorderState.isRecording} onPress={toggleRecording} />
+        <Text style={[styles.prompt, tightPhone && styles.promptTight]}>{recorderState.isRecording ? `${Math.round(recorderState.durationMillis / 1000)}s · tap to stop` : voiceDraft ? `${voiceDraft.seconds}s captured. Type transcript below.` : busy ? 'Streaming Hermes…' : 'Tap the orb to talk.'}</Text>
+        {!hasChat ? <Text style={styles.helper}>Ask, dump a thought, or capture a task without leaving the main page.</Text> : null}
+      </View>
+    </GlassCard>
     {!hasChat ? <View style={styles.quickRow}>
       {['What should I do next?', 'Turn this into tasks', 'Log food from my day'].map(text => <Pressable key={text} onPress={() => setMessage(text)} style={styles.quickChip}><Text style={styles.quickChipText}>{text}</Text></Pressable>)}
     </View> : null}
@@ -111,6 +113,10 @@ const styles = StyleSheet.create({
   statusPill: { minHeight: 30, borderRadius: 15, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.045)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.075)' },
   statusDot: { color: colors.lime, fontSize: 10, lineHeight: 12 },
   statusText: { color: colors.soft, fontSize: 12, fontFamily: fonts.bodySemibold, textTransform: 'uppercase', letterSpacing: 1.4 },
+  micHero: { minHeight: 310, borderRadius: 34, marginTop: 24, marginBottom: 16, borderColor: 'rgba(138,124,255,0.16)' },
+  micHeroTight: { minHeight: 270, marginTop: 18, marginBottom: 12 },
+  micHeroWithChat: { minHeight: 238, marginTop: 18 },
+  micHeroInner: { flex: 1, paddingHorizontal: 16 },
   centerZone: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 46, paddingBottom: 28 },
   centerZoneTight: { paddingTop: 26, paddingBottom: 16 },
   centerZoneWithChat: { flex: 0, paddingTop: 24, paddingBottom: 16 },

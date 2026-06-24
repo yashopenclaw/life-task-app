@@ -22,7 +22,7 @@ export function AuroraBackground({ accent = '#8a7cff', accent2 = '#c9ff4a' }: Pr
   const b = useAnimatedStyle(() => ({ transform: [{ translateX: 22 - driftB.value * 44 }, { translateY: 18 - driftB.value * 40 }, { scale: 1.12 - driftB.value * 0.12 }] }));
   const c = useAnimatedStyle(() => ({ transform: [{ translateX: -24 + driftC.value * 48 }, { translateY: 24 - driftC.value * 44 }, { scale: 1 + driftC.value * 0.1 }] }));
 
-  return <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+  return <View style={[StyleSheet.absoluteFill, styles.noPointer]}>
     <AnimatedView style={[styles.blob, styles.blobA, a]}><AuroraSvg id="a" color={accent} opacity={0.24} /></AnimatedView>
     <AnimatedView style={[styles.blob, styles.blobB, b]}><AuroraSvg id="b" color={accent2} opacity={0.16} /></AnimatedView>
     <AnimatedView style={[styles.blob, styles.blobC, c]}><AuroraSvg id="c" color={mix(accent, accent2)} opacity={0.32} /></AnimatedView>
@@ -46,6 +46,7 @@ function mix(a: string, b: string) {
 }
 
 const styles = StyleSheet.create({
+  noPointer: { pointerEvents: 'none' },
   blob: { position: 'absolute', width: 360, height: 360 },
   blobA: { top: -110, left: -140 },
   blobB: { top: 150, right: -170 },

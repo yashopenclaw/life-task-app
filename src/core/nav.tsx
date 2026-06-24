@@ -47,13 +47,14 @@ export function NavShell() {
         return <View key={feature.key} style={[styles.screenSlot, !active && styles.screenHidden]}><Screen /></View>;
       })}
     </View>
-    <View style={styles.bottomWrap}>
+    <View style={[styles.bottomWrap, compact && styles.bottomWrapCompact]}>
       <GlassCard style={styles.rail} contentStyle={styles.railContent}>
         <View style={styles.railScroller}>
           {primaryFeatures.map(f => {
             const active = selectedKey === f.key;
             const accent = (accentMap[f.key] || accentMap.assistant).accent;
             return <Pressable key={f.key} accessibilityRole="button" onPress={() => selectTab(f.key)} style={[styles.iconButton, active && styles.iconButtonActive, active && { backgroundColor: accent, shadowColor: accent }]}>
+              {active ? <View style={styles.activeSheen} /> : null}
               <TabIcon name={iconMap[f.key] || 'square'} active={active} color={active ? '#050608' : '#7f8590'} size={21} />
               <Text numberOfLines={1} style={[styles.tabLabel, !active && styles.tabLabelMuted]}>{f.title}</Text>
             </Pressable>;
@@ -70,11 +71,13 @@ const styles = StyleSheet.create({
   screenSlot: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, paddingHorizontal: 24, paddingTop: 28, paddingBottom: 92 },
   screenHidden: { opacity: 0, display: 'none' },
   bottomWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 22, paddingBottom: 18, paddingTop: 8 },
-  rail: { height: 64, borderRadius: 32, shadowColor: '#000', shadowOpacity: 0.42, shadowRadius: 22, elevation: 16 },
+  bottomWrapCompact: { paddingHorizontal: 16, paddingBottom: 14 },
+  rail: { height: 68, borderRadius: 34, shadowColor: '#000', shadowOpacity: 0.42, shadowRadius: 22, elevation: 16 },
   railContent: { flex: 1 },
   railScroller: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8, gap: 7 },
-  iconButton: { flex: 1, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6, paddingHorizontal: 8, shadowOpacity: 0.24, shadowRadius: 10, elevation: 5 },
+  iconButton: { flex: 1, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6, paddingHorizontal: 8, shadowOpacity: 0.24, shadowRadius: 10, elevation: 5, overflow: 'hidden' },
   iconButtonActive: { flex: 1.12 },
+  activeSheen: { position: 'absolute', left: 10, right: 10, top: 5, height: 1, backgroundColor: 'rgba(255,255,255,0.34)' },
   tabLabel: { color: '#050608', fontFamily: fonts.bodySemibold, fontSize: 11.5, letterSpacing: 0.1 },
   tabLabelMuted: { color: '#8f96a1' },
 });

@@ -27,14 +27,15 @@ export default function CaloriesScreen() {
   const today = new Date().toISOString().slice(0, 10);
   const items = (data || []).filter(entry => entry.date === today);
   const total = items.reduce((sum, entry) => sum + entry.calories, 0);
+  const remaining = DAILY_GOAL - total;
   const percent = Math.min(999, Math.round((total / DAILY_GOAL) * 100));
   const macros = useMemo(() => items.reduce((acc, entry) => { acc.protein += entry.nutrition?.protein_g || 0; acc.carbs += entry.nutrition?.carbs_g || 0; acc.fat += entry.nutrition?.fat_g || 0; return acc; }, { protein: 0, carbs: 0, fat: 0 }), [items]);
   if (loading) return <State loading />; if (error) return <State error={error} retry={load} />;
 
   return <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.wrap}>
     <View style={styles.topLine}><View><Text style={styles.kicker}>TODAY · NUTRITION</Text><Text style={styles.title}>Calories</Text></View></View>
-    <View style={styles.ringWrap}><CalorieRing total={total} /></View>
-    <GlassCard style={styles.summaryCard} contentStyle={styles.summaryInner}><View style={styles.summaryTop}><View><Text style={styles.summaryLabel}>DAILY PACE</Text><Text style={styles.summaryCopy}>{total > DAILY_GOAL ? 'Goal crossed. Keep dinner light.' : `${(DAILY_GOAL - total).toLocaleString('en-IN')} kcal left for today.`}</Text></View><Text style={styles.summaryValue}>{percent}%</Text></View><View style={styles.meterTrack}><View style={[styles.meterFill, { width: `${Math.min(100, percent)}%` }]} /></View></GlassCard>
+    <GlassCard style={styles.heroCard} contentStyle={styles.heroInner}><View style={styles.ringWrap}><CalorieRing total={total} /></View><View style={styles.heroCopy}><Text style={styles.heroLabel}>{remaining >= 0 ? 'ROOM LEFT' : 'OVER GOAL'}</Text><Text style={styles.heroValue}>{Math.abs(remaining).toLocaleString('en-IN')}</Text><Text style={styles.heroSub}>kcal {remaining >= 0 ? 'available today' : 'above target today'}</Text></View></GlassCard>
+    <GlassCard style={styles.summaryCard} contentStyle={styles.summaryInner}><View style={styles.summaryTop}><View><Text style={styles.summaryLabel}>DAILY PACE</Text><Text style={styles.summaryCopy}>{total > DAILY_GOAL ? 'Goal crossed. Keep dinner light.' : `${remaining.toLocaleString('en-IN')} kcal left for today.`}</Text></View><Text style={styles.summaryValue}>{percent}%</Text></View><View style={styles.meterTrack}><View style={[styles.meterFill, { width: `${Math.min(100, percent)}%` }]} /></View></GlassCard>
     <View style={styles.macroRow}><Macro value={Math.round(macros.protein)} label="PROTEIN" color="#f3be65" /><Macro value={Math.round(macros.carbs)} label="CARBS" color={colors.lime} /><Macro value={Math.round(macros.fat)} label="FAT" color="#e4d561" /></View>
     <GlassCard style={styles.inputBar} contentStyle={styles.inputBarInner}><TextInput value={message} onChangeText={setMessage} placeholder={'Say or type — "two eggs and toast"'} placeholderTextColor="#6b707b" style={styles.input} onSubmitEditing={() => addNatural('typed')} /><Pressable onPress={() => addNatural('voice')} style={styles.micButton}><MicGlyph size={23} /></Pressable></GlassCard>
     <View style={styles.quickFoodRow}>{quickFoods.map(food => <Pressable key={food} onPress={() => setMessage(food)} style={styles.quickFood}><Text style={styles.quickFoodText}>{food}</Text></Pressable>)}</View>
@@ -70,7 +71,13 @@ const styles = StyleSheet.create({
   topLine: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   kicker: { color: '#8b909a', fontSize: 11, letterSpacing: 4.5, fontFamily: fonts.bodySemibold, marginBottom: 12 },
   title: { color: colors.ink, fontSize: 38, lineHeight: 43, fontFamily: fonts.displaySemibold, letterSpacing: -1.3 },
-  ringWrap: { alignItems: 'center', marginTop: 36, marginBottom: 28 },
+  heroCard: { minHeight: 210, borderRadius: 32, marginTop: 28, marginBottom: 16, borderColor: 'rgba(243,190,101,0.15)' },
+  heroInner: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 18, paddingHorizontal: 14 },
+  ringWrap: { alignItems: 'center' },
+  heroCopy: { minWidth: 112 },
+  heroLabel: { color: '#a5a9b3', fontSize: 10, letterSpacing: 2.1, fontFamily: fonts.bodySemibold },
+  heroValue: { color: colors.ink, fontSize: 38, fontFamily: fonts.displaySemibold, letterSpacing: -1.3, marginTop: 8 },
+  heroSub: { color: colors.muted, fontSize: 13, lineHeight: 17, fontFamily: fonts.bodyMedium, marginTop: 2 },
   ringOuter: { width: 168, height: 168, alignItems: 'center', justifyContent: 'center', shadowColor: colors.lime, shadowOpacity: 0.40, shadowRadius: 18, elevation: 9 },
   ringSvg: { position: 'absolute' },
   ringInner: { width: 118, height: 118, borderRadius: 59, alignItems: 'center', justifyContent: 'center' },
