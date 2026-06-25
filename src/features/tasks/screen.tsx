@@ -42,7 +42,9 @@ export default function TasksScreen() {
 
   async function handleMicPress() {
     if (voicePhase === 'recording') {
-      const uri = await recorder.stop();
+      await recorder.stop();
+      const uri: string | null = recorder.uri;
+      if (!uri) { setVoicePhase('idle'); Alert.alert('Recording failed', 'No audio captured.'); return; }
       setVoicePhase('transcribing');
       setRecordingUri(uri);
       return;
@@ -65,7 +67,10 @@ export default function TasksScreen() {
         try {
           const text = await assistantApi.transcribe(recordingUri);
           if (text.trim()) await addNatural(text, 'voice');
-        } catch { Alert.alert('Transcribe failed', 'Could not transcribe audio.'); }
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : 'Could not transcribe audio.';
+          Alert.alert('Transcribe failed', msg);
+        }
         finally { setVoicePhase('idle'); setRecordingUri(null); }
       })();
     }
@@ -197,7 +202,7 @@ function TaskCard({ task, onToggle, onDelete }: { task: Task; onToggle: () => vo
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  wrap: { paddingBottom: 110 },
+  wrap: { paddingBottom: 132 },
   header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginTop: 4 },
   kicker: { color: '#6c717c', fontSize: 10, letterSpacing: 3.8, fontFamily: fonts.bodySemibold },
   title: { color: colors.ink, fontSize: 34, fontFamily: fonts.displaySemibold, letterSpacing: -1.0, marginTop: 6 },
@@ -230,7 +235,7 @@ const styles = StyleSheet.create({
   deleteBtn: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.04)' },
   deleteText: { color: '#ff9f9f', fontFamily: fonts.displayMedium, fontSize: 18, lineHeight: 20 },
   // Floating action bar
-  floatingBar: { position: 'absolute', left: 24, right: 24, bottom: 76, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  floatingBar: { position: 'absolute', left: 24, right: 24, bottom: -12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   floatMic: { width: 50, height: 50, borderRadius: 25, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', shadowColor: colors.primary, shadowOpacity: 0.35, shadowRadius: 14, elevation: 8 },
   floatMicActive: { backgroundColor: colors.lime, shadowColor: colors.lime },
   floatWave: { flexDirection: 'row', alignItems: 'center', height: 20, gap: 3 },

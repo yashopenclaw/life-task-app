@@ -61,14 +61,31 @@ export const assistantApi = {
     return fullText;
   },
   transcribe: async (uri: string): Promise<string> => {
-    const formData = new FormData();
-    formData.append('file', { uri, name: 'audio.m4a', type: 'audio/m4a' } as any);
-    const response = await fetch(endpoint('/assistant/transcribe'), { method: 'POST', body: formData });
-    if (!response.ok) throw new Error(`Transcribe failed: ${response.status}`);
+    // Avoid React Native's broken native FormData/Blob paths in this runtime.
+    // Read the local recording as bytes and POST raw audio to the backend.
+    const audioResponse = await fetch(uri);
+    if (!audioResponse.ok) throw new Error(`Could not read recorded audio: ${audioResponse.status}`);
+    const audioBytes = await audioResponse.arrayBuffer();
+    const response = await fetch(endpoint('/assistant/transcribe/raw?filename=audio.m4a'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'audio/m4a' },
+      body: audioBytes as any,
+    });
+    if (!response.ok) {
+      let detail = `${response.status} ${response.statusText}`;
+      try {
+        const data = await response.json();
+        detail = data.detail || data.error || detail;
+      } catch {}
+      throw new Error(`Transcribe failed: ${detail}`);
+    }
     const data = await response.json();
     return data.text || '';
   },
   title: (message: string) => request<{ text: string }>('/assistant/title', { method: 'POST', body: JSON.stringify({ message, source: 'typed' }) }).then(r => r.text),
   models: () => request<{ current: string; models: { id: string; label: string; provider: string }[] }>('/assistant/models'),
   switchModel: (model: string, provider: string) => request<{ current: string; models: { id: string; label: string; provider: string }[] }>('/assistant/models', { method: 'POST', body: JSON.stringify({ model, provider }) }),
+  getQueue: () => request<{ queued: number; items: string[] }>('/assistant/queue'),
+  addToQueue: (message: string) => request<{ queued: number; items: string[] }>('/assistant/queue', { method: 'POST', body: JSON.stringify({ message }) }),
+  clearQueue: () => request<{ queued: number; items: string[] }>('/assistant/queue', { method: 'DELETE' }),
 };

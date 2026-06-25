@@ -25,7 +25,9 @@ export function VoiceOrb({ onTranscript, accent = '#8a7cff', size = 44 }: { onTr
 
   async function handlePress() {
     if (phase === 'recording') {
-      const uri = await recorder.stop();
+      await recorder.stop();
+      const uri: string | null = recorder.uri;
+      if (!uri) { setPhase('idle'); Alert.alert('Recording failed', 'No audio captured.'); return; }
       setPhase('transcribing');
       setRecordingUri(uri);
       return;
@@ -55,10 +57,11 @@ export function VoiceOrb({ onTranscript, accent = '#8a7cff', size = 44 }: { onTr
           setPhase('idle');
           setRecordingUri(null);
           if (text.trim()) onTranscript(text.trim());
-        }).catch(() => {
+        }).catch((error) => {
+          const msg = error instanceof Error ? error.message : 'Could not transcribe audio.';
           setPhase('idle');
           setRecordingUri(null);
-          Alert.alert('Transcribe failed', 'Could not transcribe audio.');
+          Alert.alert('Transcribe failed', msg);
         });
       });
     }

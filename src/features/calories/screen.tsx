@@ -17,6 +17,13 @@ const DEFAULT_DAILY_GOAL = 2200;
 
 type VoicePhase = 'idle' | 'recording' | 'transcribing';
 
+function localDateKey(date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export default function CaloriesScreen() {
   const { width } = useWindowDimensions();
   const narrowPhone = width < 390;
@@ -28,6 +35,7 @@ export default function CaloriesScreen() {
   const [goalEditOpen, setGoalEditOpen] = useState(false);
   const [goalDraft, setGoalDraft] = useState(String(dailyGoal));
   useEffect(() => { setGoalDraft(String(dailyGoal)); }, [dailyGoal]);
+  const [selectedDate, setSelectedDate] = useState('');
 
   // Voice state
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
@@ -43,9 +51,16 @@ export default function CaloriesScreen() {
     })();
   }, []);
 
+  const today = localDateKey();
+  const activeDate = selectedDate || today;
+  const isToday = activeDate === today;
+
   async function handleRingPress() {
+    if (!isToday) return;
     if (voicePhase === 'recording') {
-      const uri = await recorder.stop();
+      await recorder.stop();
+      const uri: string | null = recorder.uri;
+      if (!uri) { setVoicePhase('idle'); Alert.alert('Recording failed', 'No audio captured.'); return; }
       setVoicePhase('transcribing');
       setRecordingUri(uri);
       return;
@@ -62,14 +77,17 @@ export default function CaloriesScreen() {
     }
   }
 
-  // Transcribe when URI is set
+  // Transcribe when URI is set, then submit the raw food text.
   useEffect(() => {
     if (recordingUri && voicePhase === 'transcribing') {
       (async () => {
         try {
           const text = await assistantApi.transcribe(recordingUri);
           if (text.trim()) await submitEntry(text, 'voice');
-        } catch { Alert.alert('Transcribe failed', 'Could not transcribe audio.'); }
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : 'Could not transcribe audio.';
+          Alert.alert('Transcribe failed', msg);
+        }
         finally { setVoicePhase('idle'); setRecordingUri(null); }
       })();
     }
@@ -86,7 +104,7 @@ export default function CaloriesScreen() {
     const clean = text.trim(); if (!clean || busy) return;
     setBusy(true);
     try {
-      const result = await caloriesApi.natural(clean, source);
+      const result = await caloriesApi.natural(clean, source, today);
       let itemTitle = result.entry.item;
       if (source === 'voice') {
         itemTitle = await assistantApi.title(clean).catch(() => result.entry.item);
@@ -103,8 +121,20 @@ export default function CaloriesScreen() {
     try { await caloriesApi.remove(id); }
     catch (err) { if (removed) setData(prev => [removed, ...(prev || [])]); throw err; }
   }
-  const today = new Date().toISOString().slice(0, 10);
-  const items = (data || []).filter(entry => entry.date === today);
+
+  const dates = useMemo(() => {
+    const set = new Set((data || []).map(e => e.date));
+    set.add(today);
+    return Array.from(set).sort((a, b) => b.localeCompare(a));
+  }, [data, today]);
+
+  const totalsByDate = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const e of (data || [])) m[e.date] = (m[e.date] || 0) + e.calories;
+    return m;
+  }, [data]);
+
+  const items = (data || []).filter(entry => entry.date === activeDate);
   const total = items.reduce((sum, entry) => sum + entry.calories, 0);
   const remaining = dailyGoal - total;
   const percent = Math.min(100, Math.round((total / dailyGoal) * 100));
@@ -117,9 +147,12 @@ export default function CaloriesScreen() {
       <Text style={styles.title}>Calories</Text>
     </View>
 
-    {/* Ring — tap to voice record. Shows mic/waves while recording, spinner while transcribing */}
+    {/* Day selector — horizontal scroll, calorie total per day */}
+    <DayStrip dates={dates} totalsByDate={totalsByDate} today={today} selectedDate={activeDate} onSelect={setSelectedDate} />
+
+    {/* Ring — tap to voice record (today only). Shows mic/waves while recording, spinner while transcribing */}
     <View style={styles.ringHero}>
-      <CalorieRing total={total} goal={dailyGoal} remaining={remaining} voicePhase={voicePhase} recordingDuration={recorderState.durationMillis} onPress={handleRingPress} />
+      <CalorieRing total={total} goal={dailyGoal} remaining={remaining} voicePhase={isToday ? voicePhase : 'idle'} recordingDuration={recorderState.durationMillis} onPress={handleRingPress} interactive={isToday} />
     </View>
 
     {/* Goal line */}
@@ -139,8 +172,8 @@ export default function CaloriesScreen() {
       <Macro value={Math.round(macros.fat)} label="Fat" color="#e4d561" />
     </View>
 
-    {/* Text input — text only, submit arrow */}
-    <GlassCard style={styles.inputBar} contentStyle={styles.inputBarInner}>
+    {/* Text input — text only, submit arrow (today only) */}
+    {isToday ? <GlassCard style={styles.inputBar} contentStyle={styles.inputBarInner}>
       <TextInput
         value={message}
         onChangeText={setMessage}
@@ -153,12 +186,12 @@ export default function CaloriesScreen() {
       <Pressable onPress={() => submitEntry(message, 'typed')} disabled={busy || !message.trim()} style={[styles.submitButton, (busy || !message.trim()) && styles.submitButtonDisabled]}>
         {busy ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.submitArrow}>↑</Text>}
       </Pressable>
-    </GlassCard>
+    </GlassCard> : null}
 
-    {/* Today's entries */}
-    <Text style={styles.sectionLabel}>Today · {items.length}</Text>
+    {/* Selected day entries */}
+    <Text style={styles.sectionLabel}>{isToday ? 'Today' : dayLabel(activeDate, today)} · {items.length}</Text>
     {items.length === 0
-      ? <Text style={styles.empty}>Nothing logged yet.</Text>
+      ? <Text style={styles.empty}>{isToday ? 'Nothing logged yet.' : 'No entries for this day.'}</Text>
       : items.map(entry => <GlassCard key={entry.id} style={styles.foodCard} contentStyle={styles.foodCardInner}>
           <View style={styles.foodInfo}>
             <Text style={styles.foodTitle}>{entry.item}</Text>
@@ -173,16 +206,46 @@ export default function CaloriesScreen() {
             <Text style={styles.foodCal}>{entry.calories}</Text>
             <Text style={styles.foodCalUnit}>kcal</Text>
           </View>
-          <Pressable accessibilityRole="button" onPress={() => remove(entry.id)} hitSlop={8} style={styles.foodDelete}>
+          {isToday ? <Pressable accessibilityRole="button" onPress={() => remove(entry.id)} hitSlop={8} style={styles.foodDelete}>
             <Text style={styles.foodDeleteText}>×</Text>
-          </Pressable>
+          </Pressable> : null}
         </GlassCard>)}
   </ScrollView>;
 }
 
-function CalorieRing({ total, goal, remaining, voicePhase, recordingDuration, onPress }: {
+function dayLabel(dateStr: string, today: string): string {
+  if (dateStr === today) return 'Today';
+  const d = new Date(dateStr + 'T00:00:00');
+  const t = new Date(today + 'T00:00:00');
+  const diff = Math.round((t.getTime() - d.getTime()) / 86400000);
+  if (diff === 1) return 'Yesterday';
+  return d.toLocaleDateString('en-US', { weekday: 'short' });
+}
+
+function dateShort(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+}
+
+function DayStrip({ dates, totalsByDate, today, selectedDate, onSelect }: {
+  dates: string[]; totalsByDate: Record<string, number>; today: string; selectedDate: string; onSelect: (d: string) => void;
+}) {
+  return <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dayStripInner}>
+    {dates.map(d => {
+      const active = d === selectedDate;
+      const cals = totalsByDate[d] || 0;
+      return <Pressable key={d} onPress={() => onSelect(d)} style={[styles.dayChip, active && styles.dayChipActive]}>
+        <Text style={[styles.dayChipLabel, active && styles.dayChipLabelActive]}>{dayLabel(d, today)}</Text>
+        <Text style={[styles.dayChipCals, active && styles.dayChipCalsActive]}>{cals.toLocaleString('en-IN')}</Text>
+        <Text style={[styles.dayChipDate, active && styles.dayChipDateActive]}>{dateShort(d)}</Text>
+      </Pressable>;
+    })}
+  </ScrollView>;
+}
+
+function CalorieRing({ total, goal, remaining, voicePhase, recordingDuration, onPress, interactive }: {
   total: number; goal: number; remaining: number;
-  voicePhase: VoicePhase; recordingDuration: number; onPress: () => void;
+  voicePhase: VoicePhase; recordingDuration: number; onPress: () => void; interactive?: boolean;
 }) {
   const circumference = 439.8;
   const targetFraction = Math.max(0, Math.min(1, total / goal));
@@ -229,7 +292,7 @@ function CalorieRing({ total, goal, remaining, voicePhase, recordingDuration, on
           <Text style={styles.ringTotal}>{shownTotal.toLocaleString('en-IN')}</Text>
           <Text style={styles.ringUnit}>of {goal.toLocaleString('en-IN')}</Text>
           <Text style={[styles.ringRemaining, over && styles.ringOver]}>{over ? `${Math.abs(remaining).toLocaleString('en-IN')} over` : `${remaining.toLocaleString('en-IN')} left`}</Text>
-          <Text style={styles.ringHint}>tap to speak</Text>
+          {interactive !== false ? <Text style={styles.ringHint}>tap to speak</Text> : null}
         </>}
       </View>
     </Animated.View>
@@ -263,7 +326,16 @@ const styles = StyleSheet.create({
   header: { alignItems: 'center', marginTop: 4 },
   kicker: { color: '#6c717c', fontSize: 10, letterSpacing: 3.8, fontFamily: fonts.bodySemibold },
   title: { color: colors.ink, fontSize: 34, fontFamily: fonts.displaySemibold, letterSpacing: -1.0, marginTop: 6 },
-  ringHero: { alignItems: 'center', marginTop: 28, marginBottom: 16 },
+  dayStripInner: { flexDirection: 'row', gap: 8, paddingVertical: 10, marginBottom: 4 },
+  dayChip: { width: 68, borderRadius: 16, paddingVertical: 10, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+  dayChipActive: { backgroundColor: 'rgba(243,190,101,0.12)', borderColor: 'rgba(243,190,101,0.35)' },
+  dayChipLabel: { color: colors.muted, fontSize: 11, fontFamily: fonts.bodySemibold },
+  dayChipLabelActive: { color: '#f3be65' },
+  dayChipCals: { color: colors.soft, fontSize: 15, fontFamily: fonts.displaySemibold, marginTop: 4, letterSpacing: -0.3 },
+  dayChipCalsActive: { color: colors.ink },
+  dayChipDate: { color: colors.faint, fontSize: 9, fontFamily: fonts.bodyMedium, marginTop: 3 },
+  dayChipDateActive: { color: colors.muted },
+  ringHero: { alignItems: 'center', marginTop: 20, marginBottom: 16 },
   ringPressable: { alignItems: 'center', justifyContent: 'center' },
   ringOuter: { width: 180, height: 180, alignItems: 'center', justifyContent: 'center', shadowColor: colors.lime, shadowOpacity: 0.18, shadowRadius: 24, elevation: 6 },
   ringSvg: { position: 'absolute' },

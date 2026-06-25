@@ -92,23 +92,16 @@ function LiquidRail({ tabs, selectedKey, onSelect, colorProgress, tabKeys, maxIn
 
   return <View style={styles.bottomWrap}>
     <View style={styles.rail}>
+      {/* Liquid white bubble — slides between tabs */}
       <Animated.View style={[styles.indicator, indicatorStyle]} />
       {tabs.map(f => {
         const active = selectedKey === f.key;
-        const idx = tabKeys.indexOf(f.key);
-        const tabColor = useAnimatedStyle(() => {
-          'worklet';
-          const target = idx / maxIndex;
-          const dist = Math.abs(colorProgress.value - target);
-          const opacity = Math.max(0.3, 1 - dist * 2.5);
-          return { opacity };
-        });
         const accent = (accentMap[f.key] || accentMap.assistant).accent;
         return <Pressable key={f.key} accessibilityRole="button" onPress={() => onSelect(f.key)} style={styles.tabButton}>
-          <Animated.View style={[styles.tabContent, tabColor]}>
-            <TabIcon name={iconMap[f.key] || 'square'} active={active} color={active ? accent : '#6c717c'} size={20} />
+          <View style={styles.tabContent}>
+            <TabIcon name={iconMap[f.key] || 'square'} active={active} color={active ? accent : '#8a8f99'} size={20} />
             <Text numberOfLines={1} style={[styles.tabLabel, active && { color: accent }]}>{f.title}</Text>
-          </Animated.View>
+          </View>
         </Pressable>;
       })}
     </View>
@@ -123,8 +116,8 @@ const styles = StyleSheet.create({
   screenHidden: { opacity: 0, display: 'none' },
   bottomWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 24, paddingBottom: 16, paddingTop: 6 },
   rail: { flexDirection: 'row', height: 58, borderRadius: 29, backgroundColor: 'rgba(14,16,20,0.82)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', overflow: 'hidden' as const, shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 20, shadowOffset: { width: 0, height: 4 }, elevation: 12 },
-  indicator: { position: 'absolute', top: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 29 },
+  indicator: { position: 'absolute', top: 5, bottom: 5, backgroundColor: 'rgba(255,255,255,0.10)', borderRadius: 25, marginHorizontal: 6, shadowColor: '#fff', shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 0 } },
   tabButton: { flex: 1, height: 58, alignItems: 'center', justifyContent: 'center' },
   tabContent: { flexDirection: 'row', alignItems: 'center', gap: 7, height: 38, borderRadius: 19, paddingHorizontal: 14 },
-  tabLabel: { color: '#6c717c', fontFamily: fonts.bodyMedium, fontSize: 12, letterSpacing: 0.2 },
+  tabLabel: { color: '#8a8f99', fontFamily: fonts.bodyMedium, fontSize: 12, letterSpacing: 0.2 },
 });
