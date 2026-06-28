@@ -1,6 +1,6 @@
 import Svg, { Path, Rect, Line } from 'react-native-svg';
 
-export type TabIconName = 'mic' | 'check' | 'flame' | 'square';
+export type TabIconName = 'mic' | 'check' | 'flame' | 'dumbbell' | 'square';
 
 type Props = { name: TabIconName; active?: boolean; size?: number; color?: string };
 
@@ -28,6 +28,14 @@ function paths(name: TabIconName, p: { stroke: string; strokeWidth: number; fill
       </>;
     case 'flame':
       return <Path {...p} d="M12 2c1.5 3 5 4.5 5 9a5 5 0 0 1-10 0c0-1.2.4-2.2 1-3 .2 1.2 1 2 2 2 1.5 0 1.5-1.5 1-3-.6-1.8-.5-3.5 1-5z" />;
+    case 'dumbbell':
+      return <>
+        <Line {...p} x1="6" y1="12" x2="18" y2="12" />
+        <Rect {...p} x="2" y="9" width="3" height="6" rx="1" />
+        <Rect {...p} x="5" y="8" width="3" height="8" rx="1" />
+        <Rect {...p} x="16" y="8" width="3" height="8" rx="1" />
+        <Rect {...p} x="19" y="9" width="3" height="6" rx="1" />
+      </>;
     default:
       return <Rect {...p} x="4" y="4" width="16" height="16" rx="3" />;
   }

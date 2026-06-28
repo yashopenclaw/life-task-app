@@ -9,13 +9,14 @@ type Props = { accent?: string; accent2?: string; screen?: string };
 
 // Per-screen dark base + glow colors
 const screenConfig: Record<string, { base: string; glow: string; glowY: number }> = {
-  assistant: { base: '#14122B', glow: '#4B3Fae', glowY: 0.28 },
+  workouts: { base: '#1A0D0A', glow: '#A3482D', glowY: 0.24 },
   calories: { base: '#1C1407', glow: '#8a5a1e', glowY: 0.22 },
   tasks: { base: '#0E1626', glow: '#29508f', glowY: 0.18 },
+  assistant: { base: '#14122B', glow: '#4B3Fae', glowY: 0.28 },
 };
 
-export function AuroraBackground({ accent, accent2, screen = 'assistant' }: Props) {
-  const config = screenConfig[screen] || screenConfig.assistant;
+export function AuroraBackground({ accent, accent2, screen = 'workouts' }: Props) {
+  const config = screenConfig[screen] || screenConfig.workouts;
   const drift = useSharedValue(0);
   const driftB = useSharedValue(0);
 

@@ -9,14 +9,14 @@ import { AuroraBackground } from './ui/AuroraBackground';
 import { GlassCard } from './ui/GlassCard';
 import { fonts } from './fonts';
 
-const visibleTabs = ['assistant', 'calories', 'tasks'];
+const visibleTabs = ['workouts', 'calories', 'tasks'];
 const iconMap: Record<string, TabIconName> = {
-  assistant: 'mic',
+  workouts: 'dumbbell',
   calories: 'flame',
   tasks: 'check',
 };
 const accentMap: Record<string, { accent: string; accent2: string }> = {
-  assistant: { accent: '#8a7cff', accent2: '#5b9eff' },
+  workouts: { accent: '#ff8a68', accent2: '#ffc46b' },
   calories: { accent: '#f3be65', accent2: '#c9ff4a' },
   tasks: { accent: '#5b9eff', accent2: '#8a7cff' },
 };
@@ -26,7 +26,7 @@ export function NavShell() {
   const { width } = useWindowDimensions();
   const compact = width < 720;
   const primaryFeatures = useMemo(() => features.filter(f => visibleTabs.includes(f.key)), []);
-  const [selectedKey, setSelectedKey] = useState(primaryFeatures[0]?.key || 'assistant');
+  const [selectedKey, setSelectedKey] = useState(primaryFeatures[0]?.key || 'workouts');
 
   // Animated indicator position
   const colorProgress = useSharedValue(0);
@@ -34,13 +34,13 @@ export function NavShell() {
   const maxIndex = Math.max(1, tabKeys.length - 1);
 
   useEffect(() => {
-    loadJson<string>(SELECTED_TAB_KEY, primaryFeatures[0]?.key || 'assistant').then(saved => {
+    loadJson<string>(SELECTED_TAB_KEY, primaryFeatures[0]?.key || 'workouts').then(saved => {
       if (primaryFeatures.some(feature => feature.key === saved)) {
         setSelectedKey(saved);
         const idx = tabKeys.indexOf(saved);
         colorProgress.value = idx / maxIndex;
       }
-      else saveJson(SELECTED_TAB_KEY, primaryFeatures[0]?.key || 'assistant');
+      else saveJson(SELECTED_TAB_KEY, primaryFeatures[0]?.key || 'workouts');
     });
   }, [primaryFeatures]);
 
@@ -96,7 +96,7 @@ function LiquidRail({ tabs, selectedKey, onSelect, colorProgress, tabKeys, maxIn
       <Animated.View style={[styles.indicator, indicatorStyle]} />
       {tabs.map(f => {
         const active = selectedKey === f.key;
-        const accent = (accentMap[f.key] || accentMap.assistant).accent;
+        const accent = (accentMap[f.key] || accentMap.workouts).accent;
         return <Pressable key={f.key} accessibilityRole="button" onPress={() => onSelect(f.key)} style={styles.tabButton}>
           <View style={styles.tabContent}>
             <TabIcon name={iconMap[f.key] || 'square'} active={active} color={active ? accent : '#8a8f99'} size={20} />
