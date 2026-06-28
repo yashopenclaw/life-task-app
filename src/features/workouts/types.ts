@@ -9,6 +9,7 @@ export type ExerciseEstimate = {
   muscle_group: string;
   sets?: number | null;
   reps?: number | null;
+  rep_scheme?: string | null;
   weight_kg?: number | null;
   duration_min?: number | null;
   distance_km?: number | null;
@@ -26,6 +27,7 @@ export type WorkoutEntry = {
   muscle_group: string;
   sets?: number | null;
   reps?: number | null;
+  rep_scheme?: string | null;
   weight_kg?: number | null;
   duration_min?: number | null;
   distance_km?: number | null;

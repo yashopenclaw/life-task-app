@@ -16,7 +16,7 @@ const iconMap: Record<string, TabIconName> = {
   tasks: 'check',
 };
 const accentMap: Record<string, { accent: string; accent2: string }> = {
-  workouts: { accent: '#ff8a68', accent2: '#ffc46b' },
+  workouts: { accent: '#b7ff5a', accent2: '#c7a24a' },
   calories: { accent: '#f3be65', accent2: '#c9ff4a' },
   tasks: { accent: '#5b9eff', accent2: '#8a7cff' },
 };

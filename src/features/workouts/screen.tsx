@@ -15,6 +15,13 @@ function localDateKey(date = new Date()): string {
   return `${year}-${month}-${day}`;
 }
 
+const gym = {
+  green: '#b7ff5a',
+  greenDeep: '#5f8f2a',
+  ochre: '#c7a24a',
+  ochreSoft: '#d8bd76',
+};
+
 export default function WorkoutsScreen() {
   const { data, loading, error, load, setData } = useAsync(useCallback(() => workoutsApi.list(), []));
   const [busy, setBusy] = useState(false);
@@ -89,8 +96,8 @@ export default function WorkoutsScreen() {
       </View>
       <View style={styles.statRow}>
         <Stat label="sets" value={summary.sets || '—'} />
-        <Stat label="volume" value={summary.volumeKg ? `${formatNumber(summary.volumeKg)} kg` : '—'} />
-        <Stat label="cardio" value={summary.cardioMin ? `${formatNumber(summary.cardioMin)}m` : '—'} />
+        <Stat label="top set" value={summary.bestScheme || '—'} />
+        <Stat label="top load" value={summary.topWeightKg ? `${formatNumber(summary.topWeightKg)} kg` : '—'} />
       </View>
     </GlassCard>
 
@@ -123,15 +130,19 @@ function summarize(items: WorkoutEntry[]) {
   let sets = 0;
   let volumeKg = 0;
   let cardioMin = 0;
+  let topWeightKg = 0;
+  let bestScheme = '';
   const categories: Record<string, number> = {};
   for (const item of items) {
     if (item.sets) sets += item.sets;
     if (item.sets && item.reps && item.weight_kg) volumeKg += item.sets * item.reps * item.weight_kg;
     if (item.duration_min) cardioMin += item.duration_min;
+    if (item.weight_kg && item.weight_kg > topWeightKg) topWeightKg = item.weight_kg;
+    if (!bestScheme) bestScheme = schemeFor(item) || '';
     categories[item.category] = (categories[item.category] || 0) + 1;
   }
   const primary = Object.entries(categories).sort((a, b) => b[1] - a[1])[0]?.[0] || 'ready';
-  return { sets, volumeKg: Math.round(volumeKg), cardioMin: Math.round(cardioMin), primary };
+  return { sets, volumeKg: Math.round(volumeKg), cardioMin: Math.round(cardioMin), topWeightKg, bestScheme, primary };
 }
 
 function Stat({ label, value }: { label: string; value: string | number }) {
@@ -139,12 +150,22 @@ function Stat({ label, value }: { label: string; value: string | number }) {
 }
 
 function WorkoutCard({ entry, isToday, onDelete }: { entry: WorkoutEntry; isToday: boolean; onDelete: () => void }) {
+  const scheme = schemeFor(entry);
+  const weight = entry.weight_kg ? `${formatNumber(entry.weight_kg)} kg` : null;
   return <GlassCard style={styles.card} contentStyle={styles.cardInner}>
     <View style={styles.exerciseMark}><Text style={styles.exerciseMarkText}>{entry.exercise_name.slice(0, 1).toUpperCase()}</Text></View>
     <View style={styles.exerciseInfo}>
-      <Text style={styles.exerciseName}>{entry.exercise_name}</Text>
-      <Text style={styles.exerciseSub}>{entry.muscle_group || entry.category} · {entry.details?.intensity || 'moderate'}</Text>
-      <View style={styles.metricRow}>{metricParts(entry).map(part => <Text key={part} style={styles.metricPill}>{part}</Text>)}</View>
+      <View style={styles.exerciseHeaderRow}>
+        <View style={styles.exerciseTitleCol}>
+          <Text style={styles.exerciseName}>{entry.exercise_name}</Text>
+          <Text style={styles.exerciseSub}>{entry.muscle_group || entry.category} · {entry.details?.intensity || 'moderate'}</Text>
+        </View>
+        {weight ? <View style={styles.weightBadge}><Text style={styles.weightText}>{weight}</Text><Text style={styles.weightLabel}>load</Text></View> : null}
+      </View>
+      <View style={styles.highlightRow}>
+        {scheme ? <View style={styles.schemeBadge}><Text style={styles.schemeText}>{scheme}</Text><Text style={styles.schemeLabel}>reps</Text></View> : null}
+        {secondaryMetrics(entry).map(part => <Text key={part} style={styles.metricPill}>{part}</Text>)}
+      </View>
       {entry.raw_text !== entry.exercise_name ? <Text numberOfLines={1} style={styles.rawText}>{entry.raw_text}</Text> : null}
     </View>
     {isToday ? <Pressable accessibilityRole="button" onPress={onDelete} hitSlop={8} style={styles.deleteBtn}>
@@ -153,15 +174,15 @@ function WorkoutCard({ entry, isToday, onDelete }: { entry: WorkoutEntry; isToda
   </GlassCard>;
 }
 
-function metricParts(entry: WorkoutEntry) {
+function schemeFor(entry: WorkoutEntry) {
+  return entry.rep_scheme || entry.details?.rep_scheme || (entry.sets && entry.reps ? `${entry.sets}x${entry.reps}` : '');
+}
+
+function secondaryMetrics(entry: WorkoutEntry) {
   const parts: string[] = [];
-  if (entry.sets && entry.reps) parts.push(`${entry.sets}×${entry.reps}`);
-  else if (entry.reps) parts.push(`${entry.reps} reps`);
-  else if (entry.sets) parts.push(`${entry.sets} sets`);
-  if (entry.weight_kg) parts.push(`${formatNumber(entry.weight_kg)} kg`);
   if (entry.duration_min) parts.push(`${formatNumber(entry.duration_min)} min`);
   if (entry.distance_km) parts.push(`${formatNumber(entry.distance_km)} km`);
-  if (!parts.length) parts.push(entry.category);
+  if (!parts.length && !schemeFor(entry) && !entry.weight_kg) parts.push(entry.category);
   return parts;
 }
 
@@ -206,9 +227,9 @@ const styles = StyleSheet.create({
   title: { color: colors.ink, fontSize: 34, fontFamily: fonts.displaySemibold, letterSpacing: -1.0, marginTop: 6 },
   dayStripInner: { flexDirection: 'row', gap: 8, paddingVertical: 10, marginBottom: 10 },
   dayChip: { width: 68, borderRadius: 16, paddingVertical: 10, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
-  dayChipActive: { backgroundColor: 'rgba(255,123,92,0.13)', borderColor: 'rgba(255,123,92,0.36)' },
+  dayChipActive: { backgroundColor: 'rgba(183,255,90,0.11)', borderColor: 'rgba(199,162,74,0.42)' },
   dayChipLabel: { color: colors.muted, fontSize: 11, fontFamily: fonts.bodySemibold },
-  dayChipLabelActive: { color: '#ff9f7c' },
+  dayChipLabelActive: { color: gym.green },
   dayChipCount: { color: colors.soft, fontSize: 16, fontFamily: fonts.displaySemibold, marginTop: 4, letterSpacing: -0.3 },
   dayChipCountActive: { color: colors.ink },
   dayChipDate: { color: colors.faint, fontSize: 9, fontFamily: fonts.bodyMedium, marginTop: 3 },
@@ -216,11 +237,11 @@ const styles = StyleSheet.create({
   heroCard: { borderRadius: 28, marginTop: 10, marginBottom: 18 },
   heroInner: { padding: 20 },
   heroTopRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
-  heroLabel: { color: '#ff9f7c', fontFamily: fonts.bodySemibold, fontSize: 12, letterSpacing: 1.2, textTransform: 'uppercase' },
+  heroLabel: { color: gym.green, fontFamily: fonts.bodySemibold, fontSize: 12, letterSpacing: 1.2, textTransform: 'uppercase' },
   heroNumber: { color: colors.ink, fontFamily: fonts.displaySemibold, fontSize: 58, letterSpacing: -2, marginTop: 4 },
   heroCaption: { color: colors.muted, fontFamily: fonts.bodyMedium, fontSize: 13, marginTop: -4 },
-  heroBadge: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: 'rgba(255,123,92,0.12)', borderWidth: 1, borderColor: 'rgba(255,123,92,0.22)' },
-  heroBadgeText: { color: '#ffb098', fontFamily: fonts.bodySemibold, fontSize: 12, textTransform: 'capitalize' },
+  heroBadge: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: 'rgba(199,162,74,0.12)', borderWidth: 1, borderColor: 'rgba(199,162,74,0.28)' },
+  heroBadgeText: { color: gym.ochreSoft, fontFamily: fonts.bodySemibold, fontSize: 12, textTransform: 'capitalize' },
   statRow: { flexDirection: 'row', gap: 10, marginTop: 18 },
   stat: { flex: 1, borderRadius: 18, paddingVertical: 13, paddingHorizontal: 10, backgroundColor: 'rgba(255,255,255,0.035)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
   statValue: { color: colors.ink, fontFamily: fonts.displaySemibold, fontSize: 16, letterSpacing: -0.2 },
@@ -228,19 +249,28 @@ const styles = StyleSheet.create({
   inputBar: { height: 54, borderRadius: 20, marginBottom: 8 },
   inputBarInner: { flexDirection: 'row', alignItems: 'center', paddingLeft: 16, paddingRight: 6 },
   input: { flex: 1, color: colors.ink, fontFamily: fonts.bodyMedium, fontSize: 14 },
-  submitButton: { width: 44, height: 44, borderRadius: 16, backgroundColor: '#ff7b5c', alignItems: 'center', justifyContent: 'center' },
+  submitButton: { width: 44, height: 44, borderRadius: 16, backgroundColor: gym.greenDeep, alignItems: 'center', justifyContent: 'center' },
   submitButtonDisabled: { opacity: 0.4 },
   submitArrow: { color: '#fff', fontFamily: fonts.bodySemibold, fontSize: 22, lineHeight: 24 },
-  parseHint: { color: '#ff9f7c', fontFamily: fonts.bodyMedium, fontSize: 12, textAlign: 'center', marginBottom: 12 },
+  parseHint: { color: gym.green, fontFamily: fonts.bodyMedium, fontSize: 12, textAlign: 'center', marginBottom: 12 },
   sectionLabel: { color: colors.muted, fontSize: 12, fontFamily: fonts.bodySemibold, letterSpacing: 1.5, textTransform: 'uppercase', marginTop: 16, marginBottom: 14 },
   empty: { color: colors.muted, fontFamily: fonts.bodyMedium, fontSize: 14, paddingVertical: 10 },
-  card: { minHeight: 82, borderRadius: 20, marginBottom: 8 },
+  card: { minHeight: 88, borderRadius: 20, marginBottom: 8 },
   cardInner: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
-  exerciseMark: { width: 42, height: 42, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,123,92,0.13)', borderWidth: 1, borderColor: 'rgba(255,123,92,0.22)' },
-  exerciseMarkText: { color: '#ff9f7c', fontFamily: fonts.displaySemibold, fontSize: 19 },
+  exerciseMark: { width: 42, height: 42, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(183,255,90,0.12)', borderWidth: 1, borderColor: 'rgba(183,255,90,0.24)' },
+  exerciseMarkText: { color: gym.green, fontFamily: fonts.displaySemibold, fontSize: 19 },
   exerciseInfo: { flex: 1 },
+  exerciseHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 },
+  exerciseTitleCol: { flex: 1, paddingRight: 4 },
   exerciseName: { color: colors.ink, fontFamily: fonts.bodySemibold, fontSize: 14 },
   exerciseSub: { color: colors.muted, fontFamily: fonts.bodyMedium, fontSize: 11, marginTop: 3, textTransform: 'capitalize' },
+  highlightRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 7, marginTop: 9 },
+  schemeBadge: { flexDirection: 'row', alignItems: 'baseline', gap: 5, borderRadius: 11, paddingHorizontal: 9, paddingVertical: 5, backgroundColor: 'rgba(183,255,90,0.13)', borderWidth: 1, borderColor: 'rgba(183,255,90,0.26)' },
+  schemeText: { color: gym.green, fontFamily: fonts.displaySemibold, fontSize: 18, letterSpacing: -0.4 },
+  schemeLabel: { color: colors.muted, fontFamily: fonts.bodySemibold, fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.8 },
+  weightBadge: { alignItems: 'flex-end', borderRadius: 13, paddingHorizontal: 10, paddingVertical: 7, backgroundColor: 'rgba(199,162,74,0.12)', borderWidth: 1, borderColor: 'rgba(199,162,74,0.30)' },
+  weightText: { color: gym.ochreSoft, fontFamily: fonts.displaySemibold, fontSize: 15, letterSpacing: -0.2 },
+  weightLabel: { color: colors.muted, fontFamily: fonts.bodySemibold, fontSize: 8, textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 2 },
   metricRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
   metricPill: { color: colors.soft, fontFamily: fonts.bodySemibold, fontSize: 10, borderRadius: 8, overflow: 'hidden', paddingHorizontal: 7, paddingVertical: 3, backgroundColor: 'rgba(255,255,255,0.04)' },
   rawText: { color: colors.faint, fontFamily: fonts.bodyMedium, fontSize: 10, marginTop: 7 },

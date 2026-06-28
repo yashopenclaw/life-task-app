@@ -8,8 +8,8 @@ const AnimatedView = Animated.createAnimatedComponent(View);
 type Props = { accent?: string; accent2?: string; screen?: string };
 
 // Per-screen dark base + glow colors
-const screenConfig: Record<string, { base: string; glow: string; glowY: number }> = {
-  workouts: { base: '#1A0D0A', glow: '#A3482D', glowY: 0.24 },
+const screenConfig: Record<string, { base: string; glow: string; glowY: number; glowOpacity?: number; glowBOpacity?: number }> = {
+  workouts: { base: '#08150D', glow: '#4D7F2A', glowY: 0.34, glowOpacity: 0.14, glowBOpacity: 0.07 },
   calories: { base: '#1C1407', glow: '#8a5a1e', glowY: 0.22 },
   tasks: { base: '#0E1626', glow: '#29508f', glowY: 0.18 },
   assistant: { base: '#14122B', glow: '#4B3Fae', glowY: 0.28 },
@@ -45,8 +45,8 @@ export function AuroraBackground({ accent, accent2, screen = 'workouts' }: Props
     <View style={[StyleSheet.absoluteFill, { backgroundColor: config.base }]} />
 
     {/* Main accent glow — one big soft bloom near hero area */}
-    <AnimatedView style={[styles.glow, { backgroundColor: config.glow, top: `${config.glowY * 100}%` }, glowStyle]} />
-    <AnimatedView style={[styles.glowB, { backgroundColor: config.glow, top: `${config.glowY * 100}%` }, glowBStyle]} />
+    <AnimatedView style={[styles.glow, { backgroundColor: config.glow, top: `${config.glowY * 100}%`, opacity: config.glowOpacity ?? 0.5 }, glowStyle]} />
+    <AnimatedView style={[styles.glowB, { backgroundColor: config.glow, top: `${config.glowY * 100}%`, opacity: config.glowBOpacity ?? 0.25 }, glowBStyle]} />
 
     {/* Edge vignette — radial gradient that darkens edges to near-black */}
     <View style={StyleSheet.absoluteFill}>
